@@ -474,9 +474,39 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .legend-dot.open { background: #10b981; }
+.legend-dot.too-soon { background: #94a3b8; }
+.legend-dot.holiday { background: #e11d48; }
 .legend-dot.full { background: #f59e0b; }
 .legend-dot.closed { background: #cbd5e1; }
 .legend-dot.selected { background: var(--primary); }
+
+/* Booking Policy Banner */
+.booking-policy-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-left: 4px solid #16a34a;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.15rem;
+  font-size: 0.88rem;
+  color: #14532d;
+  line-height: 1.5;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.booking-policy-banner .policy-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.booking-policy-banner strong {
+  color: #15803d;
+}
 
 .cal-weekdays {
   display: grid;
@@ -547,6 +577,47 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-light);
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.cal-day-cell.too-soon-day {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.cal-day-cell.too-soon-day .slot-badge {
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 0.58rem;
+}
+
+.cal-day-cell.status-holiday {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+  cursor: not-allowed;
+}
+
+.cal-day-cell.status-holiday .slot-badge.holiday-badge {
+  background: #ffe4e6;
+  color: #e11d48;
+  font-weight: 600;
+  font-size: 0.58rem;
+}
+
+.cal-day-cell.status-no-slots {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.cal-day-cell.status-no-slots .slot-badge {
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.58rem;
 }
 
 .cal-day-cell.status-open {
@@ -2801,6 +2872,238 @@ input.is-invalid, textarea.is-invalid {
   .footer-bottom {
     padding-bottom: 2rem;
   }
+}
+
+/* ============================================================
+   User Management & Admin RBAC Styles
+   ============================================================ */
+.badge-admin {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a !important;
+  font-weight: 700 !important;
+}
+
+.badge-admin-role {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a;
+  font-weight: 700;
+}
+
+.badge-nurse-role {
+  background: var(--primary-light) !important;
+  color: var(--primary) !important;
+}
+
+.admin-shield-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 0.45rem;
+}
+
+.user-management-wrapper {
+  padding: 1.5rem;
+}
+
+.user-mgmt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.user-mgmt-header h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.user-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.user-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  transition: transform 0.15s ease;
+}
+
+.user-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-light);
+}
+
+.user-stat-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.user-stat-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.user-stat-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  font-family: var(--font-heading);
+}
+
+.user-table-toolbar {
+  margin-bottom: 1rem;
+}
+
+.user-data-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.user-data-table td {
+  padding: 0.85rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.user-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.user-role-pill.admin {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.user-role-pill.nurse {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.user-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  margin-right: 0.35rem;
+}
+
+.action-btn-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.btn-action-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-action-icon:hover {
+  background: #f8fafc;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-action-icon.danger:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
+.btn-action-icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.reset-target-user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.15rem;
+}
+
+.reset-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #e0f2fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.reset-target-name {
+  font-weight: 700;
+  color: #0369a1;
+  font-size: 0.95rem;
+}
+
+.reset-target-username {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.reset-notice-text {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.45;
+  background: #f8fafc;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  margin-top: 0.85rem;
+  margin-bottom: 1.15rem;
+  border-left: 3px solid var(--primary);
 }
 
 /* ============================================================

@@ -28,13 +28,35 @@ document.addEventListener('DOMContentLoaded', () => {
   initApp();
 });
 
+// Helper: Find first bookable date for patient (>= 5 days advance, open weekday with capacity)
+function findFirstBookableDate() {
+  const today = new Date();
+  const d = new Date(today);
+  d.setDate(today.getDate() + 5);
+  for (let i = 0; i < 90; i++) {
+    const dateStr = toDateString(d);
+    const check = window.dentalStorage.isDateBookableForPatient(dateStr);
+    if (check.isBookable) {
+      return dateStr;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return getMinBookingDateString(today);
+}
+
 function initApp() {
-  // Set default selected date to tomorrow (or today if open)
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  state.selectedDateStr = toDateString(tomorrow);
-  state.staffSelectedDateStr = state.selectedDateStr;
-  state.staffAptSelectedDateStr = state.selectedDateStr;
+  // Set default selected date to the first valid bookable date (advance >= 5 days)
+  const firstBookableDate = findFirstBookableDate();
+  state.selectedDateStr = firstBookableDate;
+
+  // Sync patient calendar view to the month of the first bookable date
+  const parts = firstBookableDate.split('-');
+  state.currentYear = parseInt(parts[0], 10);
+  state.currentMonth = parseInt(parts[1], 10) - 1;
+
+  // Staff date views default to today
+  state.staffSelectedDateStr = getTodayString();
+  state.staffAptSelectedDateStr = getTodayString();
 
   // Render initial views
   renderPatientCalendar();
@@ -181,7 +203,7 @@ function renderPatientCalendar() {
   for (let day = 1; day <= totalDaysInMonth; day++) {
     const dateObj = new Date(state.currentYear, state.currentMonth, day);
     const dateStr = toDateString(dateObj);
-    const dateStatus = window.dentalStorage.isDateOpen(dateStr);
+    const bookCheck = window.dentalStorage.isDateBookableForPatient(dateStr);
     const isPast = dateStr < todayStr;
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === state.selectedDateStr;
@@ -192,44 +214,72 @@ function renderPatientCalendar() {
 
     if (isPast) {
       cell.classList.add('past-day');
+      cell.title = 'ไม่สามารถจองคิวย้อนหลังได้';
       cell.innerHTML = `<span class="day-num">${day}</span><span class="slot-badge">ผ่านมาแล้ว</span>`;
-    } else if (!dateStatus.isOpen) {
-      cell.classList.add('status-closed');
+      cell.onclick = () => {
+        showToast('ไม่สามารถจองคิวย้อนหลังได้ครับ', 'warning');
+      };
+    } else if (bookCheck.code === 'TOO_SOON') {
+      cell.classList.add('too-soon-day');
+      cell.title = bookCheck.reason;
       cell.innerHTML = `
         <span class="day-num">${day}</span>
-        <span class="slot-badge" title="${escapeHtml(dateStatus.reason)}">ปิดทำการ</span>
+        <span class="slot-badge">&lt;5 วัน</span>
       `;
       cell.onclick = () => {
-        showToast(`วันที่ ${formatThaiDate(dateStr)} ปิดทำการ: ${dateStatus.reason}`, 'warning');
+        showToast(bookCheck.reason, 'warning');
+      };
+    } else if (bookCheck.code === 'CLOSED') {
+      if (bookCheck.isPublicHoliday) {
+        cell.classList.add('status-holiday');
+        cell.title = bookCheck.reason;
+        cell.innerHTML = `
+          <span class="day-num">${day}</span>
+          <span class="slot-badge holiday-badge">หยุดราชการ</span>
+        `;
+      } else {
+        cell.classList.add('status-closed');
+        cell.title = bookCheck.reason;
+        cell.innerHTML = `
+          <span class="day-num">${day}</span>
+          <span class="slot-badge">ปิดทำการ</span>
+        `;
+      }
+      cell.onclick = () => {
+        showToast(`วันที่ ${formatThaiDate(dateStr)}: ${bookCheck.reason}`, 'warning');
+      };
+    } else if (bookCheck.code === 'NO_SLOTS') {
+      cell.classList.add('status-no-slots');
+      cell.title = bookCheck.reason;
+      cell.innerHTML = `
+        <span class="day-num">${day}</span>
+        <span class="slot-badge">ยังไม่เปิดรอบ</span>
+      `;
+      cell.onclick = () => {
+        showToast(`วันที่ ${formatThaiDate(dateStr)}: ${bookCheck.reason}`, 'warning');
+      };
+    } else if (bookCheck.code === 'FULL') {
+      cell.classList.add('status-full');
+      cell.title = bookCheck.reason;
+      cell.innerHTML = `
+        <span class="day-num">${day}</span>
+        <span class="slot-badge">คิวเต็ม</span>
+      `;
+      cell.onclick = () => {
+        showToast(`วันที่ ${formatThaiDate(dateStr)} คิวเต็มทุกช่วงเวลาแล้ว`, 'warning');
       };
     } else {
-      // Date is OPEN: check slots capacity
-      const slots = window.dentalStorage.getSlotsForDate(dateStr);
-      const totalCapacity = slots.reduce((sum, s) => sum + s.capacity, 0);
-      const totalBooked = slots.reduce((sum, s) => sum + s.bookedCount, 0);
-      const isFull = totalBooked >= totalCapacity && totalCapacity > 0;
-
-      if (isFull) {
-        cell.classList.add('status-full');
-        cell.innerHTML = `
-          <span class="day-num">${day}</span>
-          <span class="slot-badge">คิวเต็ม</span>
-        `;
-        cell.onclick = () => {
-          showToast(`วันที่ ${formatThaiDate(dateStr)} คิวเต็มทุกช่วงเวลาแล้ว`, 'warning');
-        };
-      } else {
-        const remaining = totalCapacity - totalBooked;
-        cell.classList.add('status-open');
-        cell.innerHTML = `
-          <span class="day-num">${day}</span>
-          <span class="slot-badge">ว่าง ${remaining}</span>
-        `;
-        cell.onclick = () => selectBookingDate(dateStr);
-      }
+      // OPEN & Bookable
+      cell.classList.add('status-open');
+      cell.title = `เปิดรับจอง (ว่าง ${bookCheck.availableCount} คิว)`;
+      cell.innerHTML = `
+        <span class="day-num">${day}</span>
+        <span class="slot-badge">ว่าง ${bookCheck.availableCount}</span>
+      `;
+      cell.onclick = () => selectBookingDate(dateStr);
     }
 
-    if (isSelected && dateStatus.isOpen && !isPast) {
+    if (isSelected && bookCheck.isBookable) {
       cell.classList.add('selected');
     }
 
@@ -256,6 +306,11 @@ function nextMonth() {
 }
 
 function selectBookingDate(dateStr) {
+  const bookCheck = window.dentalStorage.isDateBookableForPatient(dateStr);
+  if (!bookCheck.isBookable) {
+    showToast(bookCheck.reason, 'warning');
+    return;
+  }
   state.selectedDateStr = dateStr;
   state.selectedSlot = null; // reset slot selection
   renderPatientCalendar();
@@ -271,11 +326,25 @@ function loadSlotsForSelectedDate() {
   if (!state.selectedDateStr) {
     label.textContent = '-';
     countBadge.textContent = 'กรุณาเลือกวัน';
-    listEl.innerHTML = '<div class="empty-hint">กรุณาคลิกเลือกวันที่เปิดให้บริการจากปฏิทิน</div>';
+    listEl.innerHTML = '<div class="empty-hint">กรุณาคลิกเลือกวันที่เปิดให้บริการจากปฏิทิน (ต้องล่วงหน้าอย่างน้อย 5 วัน)</div>';
     return;
   }
 
+  const bookCheck = window.dentalStorage.isDateBookableForPatient(state.selectedDateStr);
   label.textContent = formatThaiDate(state.selectedDateStr);
+
+  if (!bookCheck.isBookable) {
+    countBadge.textContent = 'ไม่สามารถจองได้';
+    listEl.innerHTML = `
+      <div class="empty-hint warning-box" style="padding: 1.5rem; text-align: center; color: #b91c1c; background: #fef2f2; border: 1px dashed #fca5a5; border-radius: 8px;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">⚠️</div>
+        <div style="font-weight: 600; margin-bottom: 0.25rem;">ไม่สามารถจองคิวในวันที่เลือกได้</div>
+        <div style="font-size: 0.88rem; color: #7f1d1d;">${escapeHtml(bookCheck.reason)}</div>
+      </div>
+    `;
+    return;
+  }
+
   const slots = window.dentalStorage.getSlotsForDate(state.selectedDateStr);
 
   if (slots.length === 0) {
@@ -412,10 +481,12 @@ function handleBookingSubmit(event) {
     return;
   }
 
-  // Check if date was closed meanwhile
-  const dateStatus = window.dentalStorage.isDateOpen(state.selectedDateStr);
-  if (!dateStatus.isOpen) {
-    showToast(`ขออภัย วันที่ ${formatThaiDate(state.selectedDateStr)} ปิดทำการ ไม่สามารถจองได้`, 'error');
+  // Check if date is eligible for patient booking (locking past, <5 days, holiday, slot capacity)
+  const bookCheck = window.dentalStorage.isDateBookableForPatient(state.selectedDateStr);
+  if (!bookCheck.isBookable) {
+    showToast(`ขออภัย ${bookCheck.reason}`, 'error');
+    renderPatientCalendar();
+    loadSlotsForSelectedDate();
     return;
   }
 
@@ -475,16 +546,24 @@ function handleBookingSubmit(event) {
   }
 
   // Create Appointment
-  const newAppointment = window.dentalStorage.createAppointment({
-    date: state.selectedDateStr,
-    slotId: state.selectedSlot.id,
-    slotTime: `${state.selectedSlot.start} - ${state.selectedSlot.end}`,
-    patientName: nameInput.value,
-    citizenId: cleanCId,
-    phone: cleanPhone,
-    symptoms: symptomsInput.value,
-    medicalNotes: medicalNotesInput.value
-  });
+  let newAppointment;
+  try {
+    newAppointment = window.dentalStorage.createAppointment({
+      date: state.selectedDateStr,
+      slotId: state.selectedSlot.id,
+      slotTime: `${state.selectedSlot.start} - ${state.selectedSlot.end}`,
+      patientName: nameInput.value,
+      citizenId: cleanCId,
+      phone: cleanPhone,
+      symptoms: symptomsInput.value,
+      medicalNotes: medicalNotesInput.value
+    });
+  } catch (err) {
+    showToast(err.message || 'ไม่สามารถทำการจองได้', 'error');
+    renderPatientCalendar();
+    loadSlotsForSelectedDate();
+    return;
+  }
 
   // Reset form
   document.getElementById('booking-form').reset();
@@ -830,6 +909,32 @@ function logoutStaff() {
    Staff Portal Management (Queue, Schedule & Statistics)
    ============================================================ */
 function renderStaffDashboard() {
+  const staff = window.dentalStorage.getLoggedInStaff();
+  const isAdmin = window.dentalStorage.isStaffAdmin();
+
+  // Update staff profile name & role badge in dashboard header
+  const staffNameEl = document.getElementById('staff-name-display');
+  if (staffNameEl && staff && staff.name) {
+    staffNameEl.textContent = staff.name;
+  }
+
+  const roleBadge = document.getElementById('staff-role-badge');
+  if (roleBadge) {
+    if (isAdmin) {
+      roleBadge.textContent = '👑 ผู้ดูแลระบบ (Admin)';
+      roleBadge.className = 'staff-badge badge-admin-role';
+    } else {
+      roleBadge.textContent = '🩺 ' + ((staff && staff.role) || 'ทันตาภิบาลปฏิบัติการ');
+      roleBadge.className = 'staff-badge badge-nurse-role';
+    }
+  }
+
+  // Toggle visibility of Admin User Management Tab button
+  const userTabBtn = document.getElementById('tab-btn-users');
+  if (userTabBtn) {
+    userTabBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+  }
+
   updateStaffCurrentDateTime();
   renderStaffQueueTable();
   renderStaffAppointmentCalendar();
@@ -838,6 +943,10 @@ function renderStaffDashboard() {
   loadStaffSlotManagement();
   renderStaffStats();
   updateStaffTodayBadge();
+
+  if (isAdmin) {
+    renderAdminUsersTab();
+  }
 }
 
 function switchStaffTab(tabName) {
@@ -860,6 +969,7 @@ function switchStaffTab(tabName) {
     loadStaffSlotManagement();
   }
   if (tabName === 'stats') renderStaffStats();
+  if (tabName === 'users') renderAdminUsersTab();
 }
 
 function updateStaffCurrentDateTime() {
@@ -1620,6 +1730,247 @@ function exportAppointmentsData() {
 }
 
 /* ============================================================
+   Admin User Management & Password Reset Controller
+   ============================================================ */
+function formatDateTime(isoStr) {
+  if (!isoStr) return '-';
+  try {
+    const d = new Date(isoStr);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} น.`;
+    return `${formatThaiDate(dateStr)} ${timeStr}`;
+  } catch (e) {
+    return isoStr;
+  }
+}
+
+function renderAdminUsersTab() {
+  const users = window.dentalStorage.getStaffUsers();
+  
+  // Update KPI counters
+  const totalEl = document.getElementById('stat-user-total');
+  const adminEl = document.getElementById('stat-user-admin');
+  const nurseEl = document.getElementById('stat-user-nurse');
+  const badgeCountEl = document.getElementById('badge-users-count');
+
+  const adminCount = users.filter(u => u.roleType === 'admin').length;
+  const nurseCount = users.filter(u => u.roleType !== 'admin').length;
+
+  if (totalEl) totalEl.textContent = `${users.length} คน`;
+  if (adminEl) adminEl.textContent = `${adminCount} คน`;
+  if (nurseEl) nurseEl.textContent = `${nurseCount} คน`;
+  if (badgeCountEl) badgeCountEl.textContent = `${users.length} บัญชี`;
+
+  renderAdminUsersTable();
+}
+
+function renderAdminUsersTable() {
+  const tbody = document.getElementById('admin-user-table-body');
+  if (!tbody) return;
+
+  const currentStaff = window.dentalStorage.getLoggedInStaff();
+  const keyword = (document.getElementById('filter-user-keyword')?.value || '').trim().toLowerCase();
+  let users = window.dentalStorage.getStaffUsers();
+
+  if (keyword) {
+    users = users.filter(u => 
+      u.username.toLowerCase().includes(keyword) ||
+      u.name.toLowerCase().includes(keyword) ||
+      (u.role && u.role.toLowerCase().includes(keyword))
+    );
+  }
+
+  if (users.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
+          <div>ไม่พบข้อมูลผู้ใช้งานที่ตรงกับคำค้นหา</div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  users.forEach(u => {
+    const isCurrent = currentStaff && currentStaff.username.toLowerCase() === u.username.toLowerCase();
+    const isAdmin = u.roleType === 'admin';
+    const lastLoginText = u.lastLogin ? formatDateTime(u.lastLogin) : 'ยังไม่เคยเข้าสู่ระบบ';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div style="font-weight: 700; color: #0284c7;">
+          ${escapeHtml(u.username)}
+          ${isCurrent ? '<span style="font-size: 0.7rem; color: #16a34a; background: #dcfce7; padding: 1px 6px; border-radius: 4px; margin-left: 4px;">(บัญชีคุณ)</span>' : ''}
+        </div>
+      </td>
+      <td>
+        <div style="font-weight: 600; color: #1e293b;">${escapeHtml(u.name)}</div>
+      </td>
+      <td>
+        <div style="font-size: 0.85rem; color: #64748b;">${escapeHtml(u.role || '-')}</div>
+      </td>
+      <td>
+        <span class="user-role-pill ${isAdmin ? 'admin' : 'nurse'}">
+          ${isAdmin ? '👑 ผู้ดูแลระบบ (Admin)' : '🩺 ทันตาภิบาล'}
+        </span>
+      </td>
+      <td>
+        <span class="user-status-dot"></span>
+        <span style="font-size: 0.82rem; color: #15803d; font-weight: 500;">ใช้งานปกติ</span>
+      </td>
+      <td>
+        <div style="font-size: 0.8rem; color: #64748b;">${lastLoginText}</div>
+      </td>
+      <td>
+        <div class="action-btn-group">
+          <button class="btn-action-icon" onclick="openAdminResetModal('${escapeHtml(u.username)}')" title="รีเซ็ตรหัสผ่านใหม่เมื่อผู้ใช้ลืม">
+            <span>🔑 รีเซ็ตรหัส</span>
+          </button>
+          <button class="btn-action-icon danger" onclick="handleDeleteUser('${escapeHtml(u.username)}')" ${isCurrent ? 'disabled title="ไม่สามารถลบบัญชีของตนเองได้"' : 'title="ลบผู้ใช้งานนี้"'}>
+            <span>🗑️ ลบ</span>
+          </button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function openAddUserModal() {
+  document.getElementById('form-add-user').reset();
+  const roleTitleInput = document.getElementById('new-role-title');
+  if (roleTitleInput) roleTitleInput.value = 'ทันตาภิบาลปฏิบัติการ';
+  const errBox = document.getElementById('add-user-error');
+  if (errBox) errBox.style.display = 'none';
+  document.getElementById('modal-add-user').classList.add('show');
+}
+
+function closeAddUserModal() {
+  document.getElementById('modal-add-user').classList.remove('show');
+}
+
+function handleRoleTypeChange() {
+  const roleType = document.getElementById('new-role-type').value;
+  const roleTitleInput = document.getElementById('new-role-title');
+  if (roleTitleInput) {
+    if (roleType === 'admin') {
+      roleTitleInput.value = 'ผู้ดูแลระบบ (Admin)';
+    } else {
+      roleTitleInput.value = 'ทันตาภิบาลปฏิบัติการ';
+    }
+  }
+}
+
+function handleAddUserSubmit(event) {
+  event.preventDefault();
+  const username = document.getElementById('new-username').value;
+  const name = document.getElementById('new-name').value;
+  const roleType = document.getElementById('new-role-type').value;
+  const role = document.getElementById('new-role-title').value;
+  const password = document.getElementById('new-password').value;
+  const passwordConfirm = document.getElementById('new-password-confirm').value;
+  const errBox = document.getElementById('add-user-error');
+
+  if (password !== passwordConfirm) {
+    if (errBox) {
+      errBox.style.display = 'block';
+      errBox.textContent = 'รหัสผ่านเริ่มต้นและการยืนยันรหัสผ่านไม่ตรงกัน';
+    }
+    return;
+  }
+
+  const res = window.dentalStorage.addStaffUser({
+    username,
+    name,
+    role,
+    roleType,
+    password
+  });
+
+  if (res.success) {
+    closeAddUserModal();
+    renderAdminUsersTab();
+    showToast(`เพิ่มผู้ใช้งาน "${res.user.name}" (${res.user.username}) เรียบร้อยแล้ว`, 'success');
+  } else {
+    if (errBox) {
+      errBox.style.display = 'block';
+      errBox.textContent = res.error || 'ไม่สามารถเพิ่มผู้ใช้งานได้';
+    }
+  }
+}
+
+function openAdminResetModal(username) {
+  const users = window.dentalStorage.getStaffUsers();
+  const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+  if (!user) {
+    showToast('ไม่พบบัญชีผู้ใช้งานนี้ในระบบ', 'error');
+    return;
+  }
+
+  document.getElementById('form-admin-reset-pw').reset();
+  document.getElementById('admin-reset-target-user').value = user.username;
+  document.getElementById('admin-reset-name').textContent = user.name;
+  document.getElementById('admin-reset-username').textContent = user.username;
+
+  const errBox = document.getElementById('admin-reset-error');
+  if (errBox) errBox.style.display = 'none';
+
+  document.getElementById('modal-admin-reset-pw').classList.add('show');
+}
+
+function closeAdminResetModal() {
+  document.getElementById('modal-admin-reset-pw').classList.remove('show');
+}
+
+function handleAdminResetSubmit(event) {
+  event.preventDefault();
+  const username = document.getElementById('admin-reset-target-user').value;
+  const newPw = document.getElementById('admin-reset-new-pw').value;
+  const confirmPw = document.getElementById('admin-reset-confirm-pw').value;
+  const errBox = document.getElementById('admin-reset-error');
+
+  if (newPw !== confirmPw) {
+    if (errBox) {
+      errBox.style.display = 'block';
+      errBox.textContent = 'รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน';
+    }
+    return;
+  }
+
+  const res = window.dentalStorage.adminResetPassword(username, newPw);
+  if (res.success) {
+    closeAdminResetModal();
+    renderAdminUsersTab();
+    showToast(`รีเซ็ตรหัสผ่านสำหรับ "${res.name}" เรียบร้อยแล้ว! สามารถนำรหัสผ่านใหม่ไปเข้าใช้งานได้ทันที`, 'success');
+  } else {
+    if (errBox) {
+      errBox.style.display = 'block';
+      errBox.textContent = res.error || 'ไม่สามารถรีเซ็ตรหัสผ่านได้';
+    }
+  }
+}
+
+function handleDeleteUser(username) {
+  const users = window.dentalStorage.getStaffUsers();
+  const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+  if (!user) return;
+
+  const confirmed = window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีผู้ใช้งาน:\n"${user.name}" (Username: ${user.username})\n\nเมื่อลบแล้วจะไม่สามารถกู้คืนได้`);
+  if (!confirmed) return;
+
+  const res = window.dentalStorage.deleteStaffUser(username);
+  if (res.success) {
+    renderAdminUsersTab();
+    showToast(`ลบบัญชีผู้ใช้งาน "${user.username}" ออกจากระบบเรียบร้อย`, 'info');
+  } else {
+    showToast(res.error || 'ไม่สามารถลบผู้ใช้งานได้', 'error');
+  }
+}
+
+/* ============================================================
    BroadcastChannel Sync Listener
    ============================================================ */
 function setupBroadcastListener() {
@@ -1634,6 +1985,9 @@ function setupBroadcastListener() {
       renderStaffAppointmentAgenda();
       renderStaffStats();
       updateStaffTodayBadge();
+      if (window.dentalStorage.isStaffAdmin()) {
+        renderAdminUsersTab();
+      }
     }
   });
 
@@ -1651,6 +2005,9 @@ function setupBroadcastListener() {
             renderStaffAppointmentAgenda();
             renderStaffStats();
             updateStaffTodayBadge();
+            if (window.dentalStorage.isStaffAdmin()) {
+              renderAdminUsersTab();
+            }
           }
         }
       };

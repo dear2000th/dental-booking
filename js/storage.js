@@ -115,6 +115,107 @@ function isValidThaiCitizenId(id) {
   return checkDigit === parseInt(id.charAt(12), 10);
 }
 
+// ============================================================
+// Clinic Booking Policy & Advance Booking Rules
+// ============================================================
+const MIN_BOOKING_ADVANCE_DAYS = 5;
+
+// Helper: Get minimum allowed date for booking (today + 5 days)
+function getMinBookingDate(baseDate = new Date()) {
+  const d = new Date(baseDate);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + MIN_BOOKING_ADVANCE_DAYS);
+  return d;
+}
+
+function getMinBookingDateString(baseDate = new Date()) {
+  const d = getMinBookingDate(baseDate);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// ============================================================
+// Thailand Official Public Holidays (วันหยุดราชการประจำปี)
+// ============================================================
+const THAI_PUBLIC_HOLIDAYS_FIXED = {
+  '01-01': 'วันขึ้นปีใหม่',
+  '04-06': 'วันพระบาทสมเด็จพระพุทธยอดฟ้าจุฬาโลกมหาราช และวันที่ระลึกมหาจักรีบรมราชวงศ์ (วันจักรี)',
+  '04-13': 'วันสงกรานต์',
+  '04-14': 'วันสงกรานต์',
+  '04-15': 'วันสงกรานต์',
+  '05-01': 'วันแรงงานแห่งชาติ',
+  '05-04': 'วันฉัตรมงคล',
+  '06-03': 'วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าสุทิดาฯ พระบรมราชินี',
+  '07-28': 'วันเฉลิมพระชนมพรรษาพระบาทสมเด็จพระเจ้าอยู่หัว (ร.10)',
+  '08-12': 'วันเฉลิมพระชนมพรรษาสมเด็จพระบรมราชชนนีพันปีหลวง และวันแม่แห่งชาติ',
+  '10-13': 'วันนวมินทรมหาราช (วันคล้ายวันสวรรคต ร.9)',
+  '10-23': 'วันปิยมหาราช',
+  '12-05': 'วันคล้ายวันพระบรมราชสมภพ ร.9 วันชาติ และวันพ่อแห่งชาติ',
+  '12-10': 'วันรัฐธรรมนูญ',
+  '12-31': 'วันสิ้นปี'
+};
+
+const THAI_PUBLIC_HOLIDAYS_MOVABLE = {
+  '2025-02-12': 'วันมาฆบูชา',
+  '2025-05-11': 'วันวิสาขบูชา',
+  '2025-05-12': 'วันหยุดชดเชยวันวิสาขบูชา',
+  '2025-07-10': 'วันอาสาฬหบูชา',
+  '2025-07-11': 'วันเข้าพรรษา',
+  '2026-03-03': 'วันมาฆบูชา',
+  '2026-05-31': 'วันวิสาขบูชา',
+  '2026-06-01': 'วันหยุดชดเชยวันวิสาขบูชา',
+  '2026-07-29': 'วันอาสาฬหบูชา',
+  '2026-07-30': 'วันเข้าพรรษา',
+  '2027-02-21': 'วันมาฆบูชา',
+  '2027-02-22': 'วันหยุดชดเชยวันมาฆบูชา',
+  '2027-05-20': 'วันวิสาขบูชา',
+  '2027-07-17': 'วันอาสาฬหบูชา',
+  '2027-07-18': 'วันเข้าพรรษา',
+  '2027-07-19': 'วันหยุดชดเชยวันเข้าพรรษา'
+};
+
+function getThaiPublicHoliday(dateStr) {
+  if (!dateStr) return null;
+  
+  // 1. Check movable / year-specific holidays
+  if (THAI_PUBLIC_HOLIDAYS_MOVABLE[dateStr]) {
+    return { isHoliday: true, name: THAI_PUBLIC_HOLIDAYS_MOVABLE[dateStr] };
+  }
+
+  // 2. Check fixed annual holidays (MM-DD)
+  const monthDay = dateStr.substring(5);
+  if (THAI_PUBLIC_HOLIDAYS_FIXED[monthDay]) {
+    return { isHoliday: true, name: THAI_PUBLIC_HOLIDAYS_FIXED[monthDay] };
+  }
+
+  // 3. Check automatic weekend compensation (วันหยุดชดเชย หากวันหยุดตรงกับ เสาร์-อาทิตย์ ให้หยุดวันจันทร์)
+  const parts = dateStr.split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const currentD = new Date(year, month, day);
+
+  if (currentD.getDay() === 1) { // If Monday
+    // Check if Sunday (yesterday) was a fixed holiday
+    const sunD = new Date(year, month, day - 1);
+    const sunMonthDay = String(sunD.getMonth() + 1).padStart(2, '0') + '-' + String(sunD.getDate()).padStart(2, '0');
+    if (THAI_PUBLIC_HOLIDAYS_FIXED[sunMonthDay]) {
+      return { isHoliday: true, name: `วันหยุดชดเชย${THAI_PUBLIC_HOLIDAYS_FIXED[sunMonthDay]}` };
+    }
+
+    // Check if Saturday (2 days ago) was a fixed holiday
+    const satD = new Date(year, month, day - 2);
+    const satMonthDay = String(satD.getMonth() + 1).padStart(2, '0') + '-' + String(satD.getDate()).padStart(2, '0');
+    if (THAI_PUBLIC_HOLIDAYS_FIXED[satMonthDay]) {
+      return { isHoliday: true, name: `วันหยุดชดเชย${THAI_PUBLIC_HOLIDAYS_FIXED[satMonthDay]}` };
+    }
+  }
+
+  return null;
+}
+
 // Default standard slots
 const DEFAULT_SLOTS = [
   { id: '09:00-10:00', start: '09:00', end: '10:00', capacity: 2 },
@@ -227,6 +328,7 @@ function getInitialStaffUsers() {
       username: 'nurse',
       name: 'ทภ. รัตนา พงษ์สวัสดิ์',
       role: 'ทันตาภิบาลปฏิบัติการ',
+      roleType: 'nurse',
       passwordHash: cryptoSha256('1234_dental_salt_2026'),
       status: 'ACTIVE',
       createdAt: '2026-11-01T08:00:00.000Z',
@@ -236,6 +338,7 @@ function getInitialStaffUsers() {
       username: 'admin',
       name: 'นายเดียร์ เบญจาวิริยะวงศ์',
       role: 'นักวิชาการสาธารณสุข (ผู้ดูแลระบบ)',
+      roleType: 'admin',
       passwordHash: cryptoSha256('1234_dental_salt_2026'),
       status: 'ACTIVE',
       createdAt: '2026-11-01T08:00:00.000Z',
@@ -351,15 +454,26 @@ class DentalStorage {
   isDateOpen(dateStr) {
     const schedule = this.getSchedule();
     
-    // Check specific date override first
+    // 1. Check explicit staff overrides first
     if (schedule.closedDates && schedule.closedDates[dateStr] && schedule.closedDates[dateStr].isClosed) {
-      return { isOpen: false, reason: schedule.closedDates[dateStr].reason || 'ปิดทำการ' };
+      return { isOpen: false, reason: schedule.closedDates[dateStr].reason || 'ปิดทำการตามประกาศคลินิก' };
     }
     if (schedule.openDates && schedule.openDates[dateStr]) {
       return { isOpen: true, reason: 'เปิดให้บริการพิเศษ' };
     }
 
-    // Check weekly standard days (0=Sunday, 6=Saturday)
+    // 2. Check Thailand Official Public Holidays (วันหยุดราชการอัตโนมัติ)
+    const holiday = getThaiPublicHoliday(dateStr);
+    if (holiday) {
+      return {
+        isOpen: false,
+        isPublicHoliday: true,
+        holidayName: holiday.name,
+        reason: `วันหยุดราชการ (${holiday.name})`
+      };
+    }
+
+    // 3. Check weekly standard days (0=Sunday, 6=Saturday closed by default)
     const dateObj = new Date(dateStr + 'T00:00:00');
     const dayOfWeek = dateObj.getDay();
     const isStandardOpen = schedule.defaultWeeklyDays.includes(dayOfWeek);
@@ -369,6 +483,53 @@ class DentalStorage {
     } else {
       return { isOpen: false, reason: 'ปิดทำการประจำสัปดาห์ (เสาร์-อาทิตย์)' };
     }
+  }
+
+  // Check if a date is eligible for patient booking (locking past, <5 days, closed, holiday, and slot capacity)
+  isDateBookableForPatient(dateStr) {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    // 1. Lock past dates (ห้ามจองย้อนหลัง)
+    if (dateStr < todayStr) {
+      return { isBookable: false, code: 'PAST_DATE', reason: 'ไม่สามารถจองคิวย้อนหลังได้' };
+    }
+
+    // 2. Lock dates less than 5 days in advance (ต้องจองล่วงหน้ามากกว่าวันปัจจุบัน 5 วัน)
+    const minBookDateStr = getMinBookingDateString(today);
+    if (dateStr < minBookDateStr) {
+      return {
+        isBookable: false,
+        code: 'TOO_SOON',
+        minDate: minBookDateStr,
+        reason: `ต้องจองคิวล่วงหน้าอย่างน้อย ${MIN_BOOKING_ADVANCE_DAYS} วัน (เปิดรับจองตั้งแต่วันที่ ${formatThaiDate(minBookDateStr)} เป็นต้นไป)`
+      };
+    }
+
+    // 3. Must not fall on public holidays or closed dates (ปิดการจองในวันหยุดราชการอัตโนมัติ)
+    const dateStatus = this.isDateOpen(dateStr);
+    if (!dateStatus.isOpen) {
+      return { isBookable: false, code: 'CLOSED', isPublicHoliday: !!dateStatus.isPublicHoliday, reason: dateStatus.reason };
+    }
+
+    // 4. Must be a date with slots configured by staff (เจ้าหน้าที่เปิด slot ให้)
+    const slots = this.getSlotsForDate(dateStr);
+    if (!slots || slots.length === 0) {
+      return { isBookable: false, code: 'NO_SLOTS', reason: 'เจ้าหน้าที่ยังไม่ได้เปิดรอบเวลาให้บริการในวันนี้' };
+    }
+
+    const availableSlots = slots.filter(s => s.remaining > 0);
+    if (availableSlots.length === 0) {
+      return { isBookable: false, code: 'FULL', reason: 'คิวเต็มทุกช่วงเวลาแล้ว' };
+    }
+
+    const totalAvailable = availableSlots.reduce((sum, s) => sum + s.remaining, 0);
+    return {
+      isBookable: true,
+      code: 'OPEN',
+      reason: 'เปิดรับจอง',
+      availableCount: totalAvailable
+    };
   }
 
   setDateStatus(dateStr, isOpen, reason = '') {
@@ -450,6 +611,21 @@ class DentalStorage {
   }
 
   createAppointment(bookingData) {
+    // 1. Enforce patient booking policy (Lock past, advance >= 5 days, holiday/closure, slot capacity)
+    const bookCheck = this.isDateBookableForPatient(bookingData.date);
+    if (!bookCheck.isBookable) {
+      throw new Error(bookCheck.reason || 'ไม่สามารถทำการจองในวันที่ระบุได้');
+    }
+
+    // 2. Validate specific slot capacity
+    if (bookingData.slotId) {
+      const slots = this.getSlotsForDate(bookingData.date);
+      const targetSlot = slots.find(s => s.id === bookingData.slotId);
+      if (targetSlot && targetSlot.remaining <= 0) {
+        throw new Error('รอบเวลาที่ท่านเลือกมีผู้จองเต็มแล้ว กรุณาเลือกรอบเวลาอื่น');
+      }
+    }
+
     const list = this.getAppointments();
     
     // Generate Booking Code: DEN-YYYYMMDD-XXX
@@ -535,7 +711,11 @@ class DentalStorage {
   getStaffUsers() {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.STAFF_USERS);
-      return data ? JSON.parse(data) : getInitialStaffUsers();
+      const list = data ? JSON.parse(data) : getInitialStaffUsers();
+      return list.map(u => ({
+        ...u,
+        roleType: u.roleType || (u.username.toLowerCase() === 'admin' || (u.role && u.role.includes('ผู้ดูแลระบบ')) ? 'admin' : 'nurse')
+      }));
     } catch (e) {
       return getInitialStaffUsers();
     }
@@ -543,6 +723,142 @@ class DentalStorage {
 
   saveStaffUsers(users) {
     localStorage.setItem(STORAGE_KEYS.STAFF_USERS, JSON.stringify(users));
+  }
+
+  isStaffAdmin() {
+    const staff = this.getLoggedInStaff();
+    if (!staff) return false;
+    return (
+      staff.roleType === 'admin' ||
+      staff.username.toLowerCase() === 'admin' ||
+      (staff.role && staff.role.includes('ผู้ดูแลระบบ'))
+    );
+  }
+
+  addStaffUser(userData) {
+    if (!this.isStaffAdmin()) {
+      return { success: false, error: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเพิ่มผู้ใช้งานได้' };
+    }
+
+    const cleanUsername = (userData.username || '').trim().toLowerCase();
+    const cleanName = (userData.name || '').trim();
+    const cleanRoleType = (userData.roleType === 'admin') ? 'admin' : 'nurse';
+    const cleanRole = (userData.role || '').trim() || (cleanRoleType === 'admin' ? 'ผู้ดูแลระบบ (Admin)' : 'ทันตาภิบาลปฏิบัติการ');
+    const cleanPassword = (userData.password || '').trim();
+
+    if (!cleanUsername || cleanUsername.length < 3) {
+      return { success: false, error: 'ชื่อผู้ใช้งานต้องเป็นตัวอักษรภาษาอังกฤษหรือตัวเลขอย่างน้อย 3 ตัวอักษร' };
+    }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(cleanUsername)) {
+      return { success: false, error: 'ชื่อผู้ใช้งานต้องประกอบด้วยตัวอักษร a-z, 0-9, _, - เท่านั้น (ไม่มีเว้นวรรค)' };
+    }
+    if (!cleanName || cleanName.length < 3) {
+      return { success: false, error: 'กรุณาระบุชื่อ-นามสกุลของผู้ปฏิบัติงานอย่างน้อย 3 ตัวอักษร' };
+    }
+    if (!cleanPassword || cleanPassword.length < 4) {
+      return { success: false, error: 'รหัสผ่านเริ่มต้นต้องมีความยาวอย่างน้อย 4 ตัวอักษร' };
+    }
+
+    const users = this.getStaffUsers();
+    if (users.some(u => u.username.toLowerCase() === cleanUsername)) {
+      return { success: false, error: `ชื่อผู้ใช้งาน "${cleanUsername}" มีอยู่ในระบบแล้ว กรุณาใช้ชื่ออื่น` };
+    }
+
+    const newUser = {
+      username: cleanUsername,
+      name: cleanName,
+      role: cleanRole,
+      roleType: cleanRoleType,
+      passwordHash: cryptoSha256(cleanPassword + '_dental_salt_2026'),
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+      lastLogin: null
+    };
+
+    users.push(newUser);
+    this.saveStaffUsers(users);
+
+    if (typeof firebaseDb !== 'undefined' && firebaseDb) {
+      firebaseDb.collection('staff_users').doc(newUser.username).set(newUser).catch(e => console.warn('Cloud add user error:', e));
+    }
+
+    this.broadcastChange();
+    return { success: true, user: newUser };
+  }
+
+  deleteStaffUser(username) {
+    if (!this.isStaffAdmin()) {
+      return { success: false, error: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลบผู้ใช้งานได้' };
+    }
+
+    const currentStaff = this.getLoggedInStaff();
+    const cleanTarget = (username || '').trim().toLowerCase();
+
+    // Prevent deleting own account
+    if (currentStaff && currentStaff.username.toLowerCase() === cleanTarget) {
+      return { success: false, error: 'ไม่สามารถลบบัญชีของตนเองที่กำลังเข้าสู่ระบบอยู่ได้' };
+    }
+
+    const users = this.getStaffUsers();
+    const targetIndex = users.findIndex(u => u.username.toLowerCase() === cleanTarget);
+    if (targetIndex === -1) {
+      return { success: false, error: 'ไม่พบบัญชีผู้ใช้งานที่ต้องการลบในระบบ' };
+    }
+
+    const targetUser = users[targetIndex];
+    // Prevent deleting the last remaining admin
+    const isTargetAdmin = targetUser.roleType === 'admin' || targetUser.username.toLowerCase() === 'admin';
+    if (isTargetAdmin) {
+      const adminCount = users.filter(u => u.roleType === 'admin' || u.username.toLowerCase() === 'admin').length;
+      if (adminCount <= 1) {
+        return { success: false, error: 'ไม่สามารถลบได้ เนื่องจากระบบจำเป็นต้องมีผู้ดูแลระบบ (Admin) อย่างน้อย 1 บัญชี' };
+      }
+    }
+
+    users.splice(targetIndex, 1);
+    this.saveStaffUsers(users);
+
+    if (typeof firebaseDb !== 'undefined' && firebaseDb) {
+      firebaseDb.collection('staff_users').doc(cleanTarget).delete().catch(e => console.warn('Cloud delete user error:', e));
+    }
+
+    this.broadcastChange();
+    return { success: true };
+  }
+
+  adminResetPassword(username, newPassword) {
+    if (!this.isStaffAdmin()) {
+      return { success: false, error: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถรีเซ็ตรหัสผ่านได้' };
+    }
+
+    const cleanTarget = (username || '').trim().toLowerCase();
+    const cleanPass = (newPassword || '').trim();
+
+    if (!cleanPass || cleanPass.length < 4) {
+      return { success: false, error: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร' };
+    }
+
+    const users = this.getStaffUsers();
+    const user = users.find(u => u.username.toLowerCase() === cleanTarget);
+    if (!user) {
+      return { success: false, error: 'ไม่พบบัญชีผู้ใช้งานที่ต้องการรีเซ็ตรหัสผ่าน' };
+    }
+
+    const newHash = cryptoSha256(cleanPass + '_dental_salt_2026');
+    user.passwordHash = newHash;
+    this.saveStaffUsers(users);
+
+    // Unblock / clear rate-limiting lockout
+    this.clearLoginLockout();
+
+    if (typeof firebaseDb !== 'undefined' && firebaseDb) {
+      firebaseDb.collection('staff_users').doc(user.username).update({
+        passwordHash: newHash
+      }).catch(e => console.warn('Cloud reset password error:', e));
+    }
+
+    this.broadcastChange();
+    return { success: true, username: user.username, name: user.name };
   }
 
   getLoginLockoutStatus() {
@@ -637,11 +953,13 @@ class DentalStorage {
       }
 
       // Create cryptographically signed session (8-hour expiry)
+      const roleType = user.roleType || (user.username.toLowerCase() === 'admin' || (user.role && user.role.includes('ผู้ดูแลระบบ')) ? 'admin' : 'nurse');
       const sessionData = {
         token: 'sec_' + Date.now() + '_' + Math.random().toString(36).substr(2),
         username: user.username,
         name: user.name,
         role: user.role,
+        roleType: roleType,
         loggedInAt: new Date().toISOString(),
         expiresAt: Date.now() + 8 * 3600 * 1000
       };

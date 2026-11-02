@@ -100,6 +100,93 @@
         const resetSchedule = st.getSchedule();
         assert('Schedule successfully reset to default standard slots', resetSchedule.defaultSlots.length === DEFAULT_SLOTS.length);
 
+        // Test 11: Rule 1 - Past Date Locking (ห้ามจองย้อนหลัง)
+        const pastCheck = st.isDateBookableForPatient('2020-01-01');
+        assert('Advance Policy: Past date is rejected (PAST_DATE)', pastCheck.isBookable === false && pastCheck.code === 'PAST_DATE');
+
+        // Test 12: Rule 2 - Booking Advance >= 5 Days (ต้องจองล่วงหน้ามากกว่า 5 วัน)
+        const dSoon = new Date();
+        dSoon.setDate(dSoon.getDate() + 2); // 2 days ahead (< 5 days)
+        const soonStr = dSoon.toISOString().split('T')[0];
+        const soonCheck = st.isDateBookableForPatient(soonStr);
+        assert('Advance Policy: Date within 5 days is rejected (TOO_SOON)', soonCheck.isBookable === false && soonCheck.code === 'TOO_SOON');
+
+        // Test 13: Rule 2 - Advance >= 5 Days is Allowed
+        const bookableCheck = st.isDateBookableForPatient('2026-11-20');
+        assert('Advance Policy: Date >= 5 days ahead is bookable', bookableCheck.isBookable === true && bookableCheck.code === 'OPEN');
+
+        // Test 14: Rule 3 - Thailand Fixed Public Holiday Auto-Closure
+        const holidayCheck = st.isDateBookableForPatient('2026-12-05'); // วันพ่อแห่งชาติ
+        assert('Holiday Policy: Fixed public holiday auto-closed (2026-12-05)', holidayCheck.isBookable === false && holidayCheck.isPublicHoliday === true);
+
+        // Test 15: Rule 3 - Thailand Movable Buddhist Holiday Auto-Closure
+        const movableCheck = getThaiPublicHoliday('2026-07-29'); // วันอาสาฬหบูชา
+        assert('Holiday Policy: Movable Buddhist holiday detected (2026-07-29)', movableCheck && movableCheck.isHoliday === true);
+
+        // Test 16: createAppointment enforces bookability rules
+        let createBlocked = false;
+        try {
+          st.createAppointment({
+            date: soonStr,
+            slotId: '09:00-10:00',
+            slotTime: '09:00 - 10:00',
+            patientName: 'ทดสอบ ผู้ป่วย',
+            citizenId: '1100400123450',
+            phone: '0812345678',
+            symptoms: 'ปวดฟัน',
+            medicalNotes: ''
+          });
+        } catch (e) {
+          createBlocked = true;
+        }
+        assert('Advance Policy: createAppointment throws error when date < 5 days', createBlocked === true);
+
+        // Test 17: Admin Role & RBAC Detection
+        st.loginStaff('nurse', '1234');
+        assert('RBAC: Nurse is NOT recognized as admin', st.isStaffAdmin() === false);
+
+        st.loginStaff('admin', '1234');
+        assert('RBAC: Admin is recognized as admin', st.isStaffAdmin() === true);
+
+        // Test 18: Non-Admin blocked from adding staff users
+        st.loginStaff('nurse', '1234');
+        const blockedAdd = st.addStaffUser({
+          username: 'fake_user',
+          name: 'ผู้ใช้ปลอม',
+          roleType: 'nurse',
+          password: 'pass'
+        });
+        assert('RBAC: Non-admin cannot add new users', blockedAdd.success === false);
+
+        // Test 19: Admin can add new staff user
+        st.loginStaff('admin', '1234');
+        const addRes = st.addStaffUser({
+          username: 'dentist_somchai',
+          name: 'ทภ. สมชาย ใจดี',
+          role: 'ทันตแพทย์ปฏิบัติการ',
+          roleType: 'nurse',
+          password: 'initialPass123'
+        });
+        assert('Admin: Successfully created new staff user', addRes.success === true && addRes.user.username === 'dentist_somchai');
+        assert('Admin: User exists in staff list', st.getStaffUsers().some(u => u.username === 'dentist_somchai'));
+
+        // Test 20: Admin can reset forgotten password for user
+        const resetRes = st.adminResetPassword('dentist_somchai', 'newResetPass888');
+        assert('Admin: Successfully reset password for user', resetRes.success === true);
+
+        // Test 21: User can login with newly reset password
+        assert('Admin: User logs in with newly reset password', st.loginStaff('dentist_somchai', 'newResetPass888') === true);
+
+        // Test 22: Admin can delete user
+        st.loginStaff('admin', '1234');
+        const deleteRes = st.deleteStaffUser('dentist_somchai');
+        assert('Admin: Successfully deleted user', deleteRes.success === true);
+        assert('Admin: Deleted user no longer in staff list', !st.getStaffUsers().some(u => u.username === 'dentist_somchai'));
+
+        // Test 23: Admin cannot delete own logged-in account
+        const deleteSelf = st.deleteStaffUser('admin');
+        assert('Admin: Blocked from deleting own logged-in account', deleteSelf.success === false);
+
         // Format Summary
         const allPassed = results.every(r => r.status === 'PASS');
         document.getElementById('test-results').textContent = JSON.stringify({
