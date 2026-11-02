@@ -68,8 +68,31 @@ function initApp() {
 
   // If already logged in to staff portal
   if (window.dentalStorage.isStaffLoggedIn()) {
-    document.getElementById('staff-nav-label').textContent = 'แดชบอร์ดทันตาภิบาล';
+    updateStaffLoginLabels(true);
+  } else {
+    updateStaffLoginLabels(false);
   }
+}
+
+// Helper: Update staff navigation labels across desktop, mobile header, drawer & bottom nav
+function updateStaffLoginLabels(isLoggedIn) {
+  const staff = window.dentalStorage.getLoggedInStaff();
+  const isAdmin = window.dentalStorage.isStaffAdmin();
+  const labelText = isLoggedIn 
+    ? (isAdmin ? 'แดชบอร์ด Admin' : 'แดชบอร์ดทันตาภิบาล') 
+    : 'ทันตาภิบาล';
+
+  const d1 = document.getElementById('staff-nav-label');
+  if (d1) d1.textContent = labelText;
+
+  const d2 = document.getElementById('m-hdr-staff-label');
+  if (d2) d2.textContent = isLoggedIn ? 'แดชบอร์ด' : 'เจ้าหน้าที่';
+
+  const d3 = document.getElementById('m-nav-staff-lbl');
+  if (d3) d3.textContent = isLoggedIn ? 'แดชบอร์ด' : 'ทันตาภิบาล';
+
+  const d4 = document.getElementById('d-staff-nav-label');
+  if (d4) d4.textContent = isLoggedIn ? 'เข้าแดชบอร์ดทันตาภิบาล & Admin' : 'เข้าสู่ระบบทันตาภิบาล & Admin';
 }
 
 // Helper: Format Date object to YYYY-MM-DD
@@ -95,24 +118,53 @@ function switchView(viewName) {
   document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.m-nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.m-hdr-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.drawer-nav-item').forEach(b => b.classList.remove('active'));
 
   const viewEl = document.getElementById(`view-${viewName}`);
   if (viewEl) viewEl.classList.add('active');
 
-  // Update nav buttons
+  // Update nav buttons across Desktop, Mobile Header, Mobile Bottom Nav, and Drawer
   if (viewName === 'patient') {
-    document.getElementById('nav-patient-btn').classList.add('active');
-    document.getElementById('m-nav-book').classList.add('active');
+    document.getElementById('nav-patient-btn')?.classList.add('active');
+    document.getElementById('m-nav-book')?.classList.add('active');
+    document.getElementById('d-nav-patient')?.classList.add('active');
   } else if (viewName === 'check-status') {
-    document.getElementById('nav-check-btn').classList.add('active');
-    document.getElementById('m-nav-check').classList.add('active');
+    document.getElementById('nav-check-btn')?.classList.add('active');
+    document.getElementById('m-nav-check')?.classList.add('active');
+    document.getElementById('m-hdr-check-btn')?.classList.add('active');
+    document.getElementById('d-nav-check')?.classList.add('active');
   } else if (viewName === 'staff') {
-    document.getElementById('nav-staff-btn').classList.add('active');
-    document.getElementById('m-nav-staff').classList.add('active');
+    document.getElementById('nav-staff-btn')?.classList.add('active');
+    document.getElementById('m-nav-staff')?.classList.add('active');
+    document.getElementById('m-hdr-staff-btn')?.classList.add('active');
+    document.getElementById('d-nav-staff')?.classList.add('active');
     renderStaffDashboard();
   }
 
+  // Ensure mobile drawer is closed on view switch
+  toggleMobileDrawer(true);
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ============================================================
+   Mobile Drawer Controller
+   ============================================================ */
+function toggleMobileDrawer(forceClose = false) {
+  const drawer = document.getElementById('mobile-drawer');
+  const backdrop = document.getElementById('mobile-drawer-backdrop');
+  if (!drawer || !backdrop) return;
+
+  if (forceClose || drawer.classList.contains('show')) {
+    drawer.classList.remove('show');
+    backdrop.classList.remove('show');
+    document.body.style.overflow = '';
+  } else {
+    drawer.classList.add('show');
+    backdrop.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
 }
 
 function openStaffModal() {
@@ -215,7 +267,10 @@ function renderPatientCalendar() {
     if (isPast) {
       cell.classList.add('past-day');
       cell.title = 'ไม่สามารถจองคิวย้อนหลังได้';
-      cell.innerHTML = `<span class="day-num">${day}</span><span class="slot-badge">ผ่านมาแล้ว</span>`;
+      cell.innerHTML = `
+        <span class="day-num">${day}</span>
+        <span class="slot-badge"><span class="badge-full">ผ่านมาแล้ว</span><span class="badge-short">-</span></span>
+      `;
       cell.onclick = () => {
         showToast('ไม่สามารถจองคิวย้อนหลังได้ครับ', 'warning');
       };
@@ -224,7 +279,7 @@ function renderPatientCalendar() {
       cell.title = bookCheck.reason;
       cell.innerHTML = `
         <span class="day-num">${day}</span>
-        <span class="slot-badge">&lt;5 วัน</span>
+        <span class="slot-badge"><span class="badge-full">&lt;5 วัน</span><span class="badge-short">&lt;5ว</span></span>
       `;
       cell.onclick = () => {
         showToast(bookCheck.reason, 'warning');
@@ -235,14 +290,14 @@ function renderPatientCalendar() {
         cell.title = bookCheck.reason;
         cell.innerHTML = `
           <span class="day-num">${day}</span>
-          <span class="slot-badge holiday-badge">หยุดราชการ</span>
+          <span class="slot-badge holiday-badge"><span class="badge-full">หยุดราชการ</span><span class="badge-short">หยุด</span></span>
         `;
       } else {
         cell.classList.add('status-closed');
         cell.title = bookCheck.reason;
         cell.innerHTML = `
           <span class="day-num">${day}</span>
-          <span class="slot-badge">ปิดทำการ</span>
+          <span class="slot-badge"><span class="badge-full">ปิดทำการ</span><span class="badge-short">ปิด</span></span>
         `;
       }
       cell.onclick = () => {
@@ -253,7 +308,7 @@ function renderPatientCalendar() {
       cell.title = bookCheck.reason;
       cell.innerHTML = `
         <span class="day-num">${day}</span>
-        <span class="slot-badge">ยังไม่เปิดรอบ</span>
+        <span class="slot-badge"><span class="badge-full">ยังไม่เปิดรอบ</span><span class="badge-short">ไม่เปิด</span></span>
       `;
       cell.onclick = () => {
         showToast(`วันที่ ${formatThaiDate(dateStr)}: ${bookCheck.reason}`, 'warning');
@@ -263,7 +318,7 @@ function renderPatientCalendar() {
       cell.title = bookCheck.reason;
       cell.innerHTML = `
         <span class="day-num">${day}</span>
-        <span class="slot-badge">คิวเต็ม</span>
+        <span class="slot-badge"><span class="badge-full">คิวเต็ม</span><span class="badge-short">เต็ม</span></span>
       `;
       cell.onclick = () => {
         showToast(`วันที่ ${formatThaiDate(dateStr)} คิวเต็มทุกช่วงเวลาแล้ว`, 'warning');
@@ -274,7 +329,7 @@ function renderPatientCalendar() {
       cell.title = `เปิดรับจอง (ว่าง ${bookCheck.availableCount} คิว)`;
       cell.innerHTML = `
         <span class="day-num">${day}</span>
-        <span class="slot-badge">ว่าง ${bookCheck.availableCount}</span>
+        <span class="slot-badge"><span class="badge-full">ว่าง ${bookCheck.availableCount}</span><span class="badge-short">${bookCheck.availableCount}คิว</span></span>
       `;
       cell.onclick = () => selectBookingDate(dateStr);
     }
@@ -831,7 +886,7 @@ function handleStaffLogin(event) {
 
     const staff = window.dentalStorage.getLoggedInStaff();
     const displayName = (staff && staff.name) ? staff.name : 'ทันตาภิบาลผู้ดูแลระบบ';
-    document.getElementById('staff-nav-label').textContent = 'แดชบอร์ดทันตาภิบาล';
+    updateStaffLoginLabels(true);
     const staffNameEl = document.getElementById('staff-name-display');
     if (staffNameEl) staffNameEl.textContent = displayName;
 
@@ -900,7 +955,7 @@ function handleChangePasswordSubmit(event) {
 
 function logoutStaff() {
   window.dentalStorage.logoutStaff();
-  document.getElementById('staff-nav-label').textContent = 'ทันตาภิบาล';
+  updateStaffLoginLabels(false);
   showToast('ออกจากระบบเรียบร้อย', 'info');
   switchView('patient');
 }

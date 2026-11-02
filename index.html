@@ -26,10 +26,11 @@
         </div>
       </div>
 
+      <!-- Desktop Navigation -->
       <nav class="header-nav">
         <button id="nav-patient-btn" class="nav-btn active" onclick="switchView('patient')">
           <span class="nav-icon">📅</span>
-          <span>สำหรับผู้รับบริการ</span>
+          <span>จองคิวรับบริการ</span>
         </button>
         <button id="nav-check-btn" class="nav-btn" onclick="switchView('check-status')">
           <span class="nav-icon">🔍</span>
@@ -40,22 +41,108 @@
           <span id="staff-nav-label">ทันตาภิบาล</span>
         </button>
       </nav>
+
+      <!-- Mobile Top Bar Quick Actions -->
+      <div class="header-mobile-actions">
+        <button class="m-hdr-btn" id="m-hdr-check-btn" onclick="switchView('check-status')" title="ตรวจสอบคิว">
+          <span class="m-hdr-icon">🔍</span>
+          <span class="m-hdr-txt">เช็คคิว</span>
+        </button>
+        <button class="m-hdr-btn m-hdr-staff-btn" id="m-hdr-staff-btn" onclick="openStaffModal()" title="เจ้าหน้าที่">
+          <span class="m-hdr-icon">🩺</span>
+          <span class="m-hdr-txt" id="m-hdr-staff-label">เจ้าหน้าที่</span>
+        </button>
+        <button class="m-hdr-menu-btn" onclick="toggleMobileDrawer()" aria-label="เมนูหลัก" title="เมนูทั้งหมด">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <!-- Mobile Bottom Navigation -->
+  <!-- Mobile Slide Drawer & Backdrop -->
+  <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop" onclick="toggleMobileDrawer()"></div>
+  <aside class="mobile-drawer" id="mobile-drawer">
+    <div class="drawer-header">
+      <div class="drawer-brand">
+        <div class="drawer-icon">🦷</div>
+        <div>
+          <h4>รพ.สต.ควนลัง</h4>
+          <span class="drawer-sub">ระบบนัดจองคิวทันตกรรมออนไลน์</span>
+        </div>
+      </div>
+      <button class="drawer-close-btn" onclick="toggleMobileDrawer()" title="ปิดเมนู">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-nav-group">
+        <div class="drawer-group-title">เมนูหลักสำหรับประชาชน</div>
+        <button class="drawer-nav-item active" id="d-nav-patient" onclick="switchView('patient'); toggleMobileDrawer();">
+          <span class="item-icon">📅</span>
+          <div class="txt-wrap">
+            <span class="main-txt">จองคิวรับบริการทันตกรรม</span>
+            <span class="sub-txt">เลือกวันและรอบเวลานัดหมายล่วงหน้า</span>
+          </div>
+          <span class="item-arrow">›</span>
+        </button>
+        <button class="drawer-nav-item" id="d-nav-check" onclick="switchView('check-status'); toggleMobileDrawer();">
+          <span class="item-icon">🔍</span>
+          <div class="txt-wrap">
+            <span class="main-txt">ตรวจสอบสถานะคิว</span>
+            <span class="sub-txt">ดูผลการยืนยันและคำแนะนำจากทันตาภิบาล</span>
+          </div>
+          <span class="item-arrow">›</span>
+        </button>
+      </div>
+
+      <div class="drawer-nav-group">
+        <div class="drawer-group-title">สำหรับบุคลากรสาธารณสุข</div>
+        <button class="drawer-nav-item staff-drawer-item" id="d-nav-staff" onclick="openStaffModal(); toggleMobileDrawer();">
+          <span class="item-icon">🩺</span>
+          <div class="txt-wrap">
+            <span class="main-txt" id="d-staff-nav-label">เข้าสู่ระบบทันตาภิบาล & Admin</span>
+            <span class="sub-txt">จัดการคิวนัด ตอบกลับผู้ป่วย และตั้งค่าวันเวลา</span>
+          </div>
+          <span class="item-arrow">›</span>
+        </button>
+      </div>
+
+      <div class="drawer-clinic-info">
+        <div class="info-row">
+          <span class="info-icon">⏰</span>
+          <span><strong>เวลาทำการ:</strong> จันทร์ - ศุกร์ 08:30 - 16:30 น.</span>
+        </div>
+        <div class="info-row">
+          <span class="info-icon">🔒</span>
+          <span>ปิดบริการเสาร์-อาทิตย์ และวันหยุดราชการ</span>
+        </div>
+        <div class="info-row">
+          <span class="info-icon">📍</span>
+          <span>รพ.สต.ควนลัง อ.หาดใหญ่ จ.สงขลา</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile Bottom Navigation Bar -->
   <nav class="mobile-nav">
     <button class="m-nav-item active" id="m-nav-book" onclick="switchView('patient')">
-      <span class="icon">📅</span>
-      <span>จองคิว</span>
+      <div class="m-nav-icon-wrap">
+        <span class="icon">📅</span>
+      </div>
+      <span class="label">จองคิว</span>
     </button>
     <button class="m-nav-item" id="m-nav-check" onclick="switchView('check-status')">
-      <span class="icon">🔍</span>
-      <span>เช็คสถานะ</span>
+      <div class="m-nav-icon-wrap">
+        <span class="icon">🔍</span>
+      </div>
+      <span class="label">เช็คสถานะ</span>
     </button>
     <button class="m-nav-item" id="m-nav-staff" onclick="openStaffModal()">
-      <span class="icon">🩺</span>
-      <span>ทันตาภิบาล</span>
+      <div class="m-nav-icon-wrap">
+        <span class="icon">🩺</span>
+      </div>
+      <span class="label" id="m-nav-staff-lbl">ทันตาภิบาล</span>
     </button>
   </nav>
 
