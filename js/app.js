@@ -61,6 +61,7 @@ function initApp() {
   // Render initial views
   renderPatientCalendar();
   loadSlotsForSelectedDate();
+  renderPatientSymptomChips();
   updateHeroStats();
   setupBroadcastListener();
   updateStaffCurrentDateTime();
@@ -78,9 +79,12 @@ function initApp() {
 function updateStaffLoginLabels(isLoggedIn) {
   const staff = window.dentalStorage.getLoggedInStaff();
   const isAdmin = window.dentalStorage.isStaffAdmin();
-  const labelText = isLoggedIn 
-    ? (isAdmin ? 'แดชบอร์ด Admin' : 'แดชบอร์ดทันตาภิบาล') 
-    : 'ทันตาภิบาล';
+  let labelText = 'ทันตาภิบาล';
+  if (isLoggedIn && staff) {
+    if (isAdmin) labelText = 'แดชบอร์ด Admin';
+    else if (staff.roleType === 'booking_staff') labelText = 'แดชบอร์ดเจ้าหน้าที่';
+    else labelText = 'แดชบอร์ดทันตาภิบาล';
+  }
 
   const d1 = document.getElementById('staff-nav-label');
   if (d1) d1.textContent = labelText;
@@ -89,10 +93,17 @@ function updateStaffLoginLabels(isLoggedIn) {
   if (d2) d2.textContent = isLoggedIn ? 'แดชบอร์ด' : 'เจ้าหน้าที่';
 
   const d3 = document.getElementById('m-nav-staff-lbl');
-  if (d3) d3.textContent = isLoggedIn ? 'แดชบอร์ด' : 'ทันตาภิบาล';
+  if (d3) d3.textContent = isLoggedIn ? 'แดชบอร์ด' : 'เจ้าหน้าที่';
 
   const d4 = document.getElementById('d-staff-nav-label');
-  if (d4) d4.textContent = isLoggedIn ? 'เข้าแดชบอร์ดทันตาภิบาล & Admin' : 'เข้าสู่ระบบทันตาภิบาล & Admin';
+  if (d4) {
+    if (isLoggedIn && staff) {
+      const rName = isAdmin ? 'Admin' : (staff.roleType === 'booking_staff' ? 'เจ้าหน้าที่จองคิว' : 'ทันตาภิบาล');
+      d4.textContent = `เข้าสู่แดชบอร์ด (${rName})`;
+    } else {
+      d4.textContent = 'เข้าสู่ระบบเจ้าหน้าที่';
+    }
+  }
 }
 
 // Helper: Format Date object to YYYY-MM-DD
@@ -481,9 +492,25 @@ function updateSummaryBar() {
   }
 }
 
+// Render dynamic patient symptom chips
+function renderPatientSymptomChips() {
+  const container = document.getElementById('patient-symptom-chips');
+  if (!container) return;
+
+  const services = window.dentalStorage.getServices();
+  const textarea = document.getElementById('p-symptoms');
+  const currentVal = textarea ? textarea.value : '';
+
+  container.innerHTML = services.map(s => {
+    const isSelected = currentVal && currentVal.includes(s.title);
+    return `<button type="button" class="chip ${isSelected ? 'active' : ''}" onclick="selectChip(this, '${escapeHtml(s.title)}')">${escapeHtml(s.title)}</button>`;
+  }).join('');
+}
+
 // Symptom quick chips selection
 function selectChip(btn, text) {
   const textarea = document.getElementById('p-symptoms');
+  if (!textarea) return;
   btn.classList.toggle('active');
 
   const currentVal = textarea.value.trim();
@@ -494,7 +521,72 @@ function selectChip(btn, text) {
       textarea.value = `${currentVal}, ${text}`;
     }
   } else {
-    textarea.value = currentVal.replace(text, '').replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ',');
+    let updated = currentVal.replace(text, '').trim();
+    updated = updated.replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ', ').trim();
+    textarea.value = updated;
+  }
+}
+
+// Staff Service Management Controller
+function renderStaffServicesList() {
+  const container = document.getElementById('staff-services-list');
+  if (!container) return;
+
+  const services = window.dentalStorage.getServices();
+  if (!services || services.length === 0) {
+    container.innerHTML = `<span style="color: var(--text-muted); font-size: 0.85rem;">ยังไม่มีปุ่มบริการ กรุณาพิมพ์ชื่อบริการแล้วกดเพิ่มด้านบน</span>`;
+    return;
+  }
+
+  container.innerHTML = services.map(s => `
+    <div class="staff-service-tag">
+      <span>${escapeHtml(s.title)}</span>
+      <button type="button" class="btn-delete-service" onclick="handleDeleteService('${escapeHtml(s.id)}')" title="ลบปุ่มบริการนี้">✕</button>
+    </div>
+  `).join('');
+}
+
+function handleAddServiceSubmit(event) {
+  event.preventDefault();
+  const input = document.getElementById('new-service-title');
+  if (!input) return;
+  const title = input.value.trim();
+  if (!title) return;
+
+  const res = window.dentalStorage.addService(title);
+  if (res.success) {
+    input.value = '';
+    renderStaffServicesList();
+    renderPatientSymptomChips();
+    showToast(`เพิ่มปุ่มบริการ "${title}" เรียบร้อยแล้ว`, 'success');
+  } else {
+    alert(res.error || 'ไม่สามารถเพิ่มบริการได้');
+  }
+}
+
+function handleDeleteService(serviceId) {
+  if (!confirm('ต้องการลบปุ่มบริการนี้ใช่หรือไม่? ผู้ป่วยจะไม่เห็นปุ่มนี้ในหน้าจองคิว')) {
+    return;
+  }
+  const res = window.dentalStorage.deleteService(serviceId);
+  if (res.success) {
+    renderStaffServicesList();
+    renderPatientSymptomChips();
+    showToast('ลบปุ่มบริการเรียบร้อยแล้ว', 'info');
+  } else {
+    alert(res.error || 'ไม่สามารถลบบริการได้');
+  }
+}
+
+function handleResetServices() {
+  if (!confirm('ยืนยันคืนค่าปุ่มบริการเป็นค่าเริ่มต้นของคลินิกทันตกรรมหรือไม่?')) {
+    return;
+  }
+  const res = window.dentalStorage.resetServicesToDefault();
+  if (res.success) {
+    renderStaffServicesList();
+    renderPatientSymptomChips();
+    showToast('คืนค่าปุ่มบริการเริ่มต้นสำเร็จ', 'success');
   }
 }
 
@@ -1851,7 +1943,18 @@ function renderAdminUsersTable() {
   users.forEach(u => {
     const isCurrent = currentStaff && currentStaff.username.toLowerCase() === u.username.toLowerCase();
     const isAdmin = u.roleType === 'admin';
+    const isBookingStaff = u.roleType === 'booking_staff';
     const lastLoginText = u.lastLogin ? formatDateTime(u.lastLogin) : 'ยังไม่เคยเข้าสู่ระบบ';
+
+    let roleClass = 'nurse';
+    let roleLabel = '🩺 ทันตาภิบาล';
+    if (isAdmin) {
+      roleClass = 'admin';
+      roleLabel = '👑 ผู้ดูแลระบบ (Admin)';
+    } else if (isBookingStaff) {
+      roleClass = 'booking-staff';
+      roleLabel = '📋 เจ้าหน้าที่จองคิว';
+    }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1868,8 +1971,8 @@ function renderAdminUsersTable() {
         <div style="font-size: 0.85rem; color: #64748b;">${escapeHtml(u.role || '-')}</div>
       </td>
       <td>
-        <span class="user-role-pill ${isAdmin ? 'admin' : 'nurse'}">
-          ${isAdmin ? '👑 ผู้ดูแลระบบ (Admin)' : '🩺 ทันตาภิบาล'}
+        <span class="user-role-pill ${roleClass}">
+          ${roleLabel}
         </span>
       </td>
       <td>
@@ -1881,6 +1984,9 @@ function renderAdminUsersTable() {
       </td>
       <td>
         <div class="action-btn-group">
+          <button class="btn-action-icon edit" onclick="openEditUserModal('${escapeHtml(u.username)}')" title="แก้ไขข้อมูลผู้ใช้งานนี้">
+            <span>✏️ แก้ไข</span>
+          </button>
           <button class="btn-action-icon" onclick="openAdminResetModal('${escapeHtml(u.username)}')" title="รีเซ็ตรหัสผ่านใหม่เมื่อผู้ใช้ลืม">
             <span>🔑 รีเซ็ตรหัส</span>
           </button>
@@ -1913,8 +2019,95 @@ function handleRoleTypeChange() {
   if (roleTitleInput) {
     if (roleType === 'admin') {
       roleTitleInput.value = 'ผู้ดูแลระบบ (Admin)';
+    } else if (roleType === 'booking_staff') {
+      roleTitleInput.value = 'เจ้าหน้าที่จองคิวและเวชระเบียน';
     } else {
       roleTitleInput.value = 'ทันตาภิบาลปฏิบัติการ';
+    }
+  }
+}
+
+function openEditUserModal(username) {
+  const users = window.dentalStorage.getStaffUsers();
+  const user = users.find(u => u.username.toLowerCase() === (username || '').toLowerCase());
+  if (!user) {
+    showToast('ไม่พบบัญชีผู้ใช้งานที่ต้องการแก้ไข', 'error');
+    return;
+  }
+
+  document.getElementById('edit-username').value = user.username;
+  document.getElementById('edit-name').value = user.name || '';
+  
+  let roleType = user.roleType;
+  if (!roleType) {
+    if (user.username.toLowerCase() === 'admin' || (user.role && user.role.includes('ผู้ดูแลระบบ'))) roleType = 'admin';
+    else if (user.username.toLowerCase() === 'staff' || (user.role && user.role.includes('จองคิว'))) roleType = 'booking_staff';
+    else roleType = 'dentist';
+  }
+  if (roleType === 'nurse') roleType = 'dentist';
+
+  document.getElementById('edit-role-type').value = roleType;
+  document.getElementById('edit-role-title').value = user.role || '';
+  document.getElementById('edit-password').value = '';
+
+  const errBox = document.getElementById('edit-user-error');
+  if (errBox) errBox.style.display = 'none';
+
+  document.getElementById('modal-edit-user').classList.add('show');
+}
+
+function closeEditUserModal() {
+  document.getElementById('modal-edit-user').classList.remove('show');
+}
+
+function handleEditRoleTypeChange() {
+  const roleType = document.getElementById('edit-role-type').value;
+  const roleTitleInput = document.getElementById('edit-role-title');
+  if (roleTitleInput) {
+    if (roleType === 'admin') {
+      roleTitleInput.value = 'ผู้ดูแลระบบ (Admin)';
+    } else if (roleType === 'booking_staff') {
+      roleTitleInput.value = 'เจ้าหน้าที่จองคิวและเวชระเบียน';
+    } else {
+      roleTitleInput.value = 'ทันตาภิบาลปฏิบัติการ';
+    }
+  }
+}
+
+function handleEditUserSubmit(event) {
+  event.preventDefault();
+  const username = document.getElementById('edit-username').value;
+  const name = document.getElementById('edit-name').value.trim();
+  const roleType = document.getElementById('edit-role-type').value;
+  const role = document.getElementById('edit-role-title').value.trim();
+  const password = document.getElementById('edit-password').value.trim();
+  const errBox = document.getElementById('edit-user-error');
+
+  const updateData = {
+    name,
+    role,
+    roleType
+  };
+  if (password) {
+    if (password.length < 4) {
+      if (errBox) {
+        errBox.style.display = 'block';
+        errBox.textContent = 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร';
+      }
+      return;
+    }
+    updateData.password = password;
+  }
+
+  const res = window.dentalStorage.updateStaffUser(username, updateData);
+  if (res.success) {
+    closeEditUserModal();
+    renderAdminUsersTab();
+    showToast(`แก้ไขข้อมูลผู้ใช้งาน "${username}" สำเร็จ`, 'success');
+  } else {
+    if (errBox) {
+      errBox.style.display = 'block';
+      errBox.textContent = res.error || 'ไม่สามารถแก้ไขข้อมูลได้';
     }
   }
 }
@@ -2033,11 +2226,13 @@ function setupBroadcastListener() {
   window.addEventListener('dental:data-synced', (event) => {
     renderPatientCalendar();
     loadSlotsForSelectedDate();
+    renderPatientSymptomChips();
     updateHeroStats();
     if (state.currentView === 'staff') {
       renderStaffQueueTable();
       renderStaffAppointmentCalendar();
       renderStaffAppointmentAgenda();
+      renderStaffServicesList();
       renderStaffStats();
       updateStaffTodayBadge();
       if (window.dentalStorage.isStaffAdmin()) {
@@ -2054,10 +2249,12 @@ function setupBroadcastListener() {
           // Re-render components quietly
           renderPatientCalendar();
           loadSlotsForSelectedDate();
+          renderPatientSymptomChips();
           if (state.currentView === 'staff') {
             renderStaffQueueTable();
             renderStaffAppointmentCalendar();
             renderStaffAppointmentAgenda();
+            renderStaffServicesList();
             renderStaffStats();
             updateStaffTodayBadge();
             if (window.dentalStorage.isStaffAdmin()) {

@@ -15,18 +15,19 @@
     <div class="header-container">
       <div class="brand" onclick="switchView('patient')">
         <div class="brand-icon">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2C8.5 2 6 4.5 6 7.5c0 3 1.5 5.5 2.5 8 .8 2 1.5 4.5 3.5 4.5s2.7-2.5 3.5-4.5c1-2.5 2.5-5 2.5-8C18 4.5 15.5 2 12 2z"/>
-            <path d="M9 7c1-1 2-1 3 0 1-1 2-1 3 0"/>
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 2C4.5 2 3 4.2 3 7C3 9.5 3.8 12.2 4.6 14.8C5.5 17.5 6 21 8.5 21C10.5 21 11 18.5 12 16.5C13 18.5 13.5 21 15.5 21C18 21 18.5 17.5 19.4 14.8C20.2 12.2 21 9.5 21 7C21 4.2 19.5 2 17 2C15 2 13.5 3.2 12 3.2C10.5 3.2 9 2 7 2Z" fill="#FFFFFF" stroke="#0284c7" stroke-width="1.8"/>
+            <path d="M6 7C6 5.5 7.2 4.5 9 4.2" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M11 6C11.3 5.8 11.6 5.7 12 5.7C12.4 5.7 12.7 5.8 13 6" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
         </div>
         <div class="brand-text">
           <h1>ทันตกรรมออนไลน์ รพ.สต.ควนลัง</h1>
-          <span class="sub">Dental Queue Booking</span>
+          <span class="sub">Dental Queue Booking • โรงพยาบาลส่งเสริมสุขภาพตำบลควนลัง</span>
         </div>
       </div>
 
-      <!-- Desktop Navigation -->
+      <!-- Desktop Navigation Only -->
       <nav class="header-nav">
         <button id="nav-patient-btn" class="nav-btn active" onclick="switchView('patient')">
           <span class="nav-icon">📅</span>
@@ -42,17 +43,9 @@
         </button>
       </nav>
 
-      <!-- Mobile Top Bar Quick Actions -->
+      <!-- Mobile Hamburger Button Only (Hidden on Desktop >= 769px) -->
       <div class="header-mobile-actions">
-        <button class="m-hdr-btn" id="m-hdr-check-btn" onclick="switchView('check-status')" title="ตรวจสอบคิว">
-          <span class="m-hdr-icon">🔍</span>
-          <span class="m-hdr-txt">เช็คคิว</span>
-        </button>
-        <button class="m-hdr-btn m-hdr-staff-btn" id="m-hdr-staff-btn" onclick="openStaffModal()" title="เจ้าหน้าที่">
-          <span class="m-hdr-icon">🩺</span>
-          <span class="m-hdr-txt" id="m-hdr-staff-label">เจ้าหน้าที่</span>
-        </button>
-        <button class="m-hdr-menu-btn" onclick="toggleMobileDrawer()" aria-label="เมนูหลัก" title="เมนูทั้งหมด">
+        <button class="m-hdr-menu-btn" onclick="toggleMobileDrawer()" aria-label="เปิดเมนูหลัก" title="เมนูหลัก">
           <span class="hamburger-bar"></span>
           <span class="hamburger-bar"></span>
           <span class="hamburger-bar"></span>
@@ -100,8 +93,8 @@
         <button class="drawer-nav-item staff-drawer-item" id="d-nav-staff" onclick="openStaffModal(); toggleMobileDrawer();">
           <span class="item-icon">🩺</span>
           <div class="txt-wrap">
-            <span class="main-txt" id="d-staff-nav-label">เข้าสู่ระบบทันตาภิบาล & Admin</span>
-            <span class="sub-txt">จัดการคิวนัด ตอบกลับผู้ป่วย และตั้งค่าวันเวลา</span>
+            <span class="main-txt" id="d-staff-nav-label">เข้าสู่ระบบเจ้าหน้าที่</span>
+            <span class="sub-txt">ทันตาภิบาล, ผู้ดูแลระบบ, เจ้าหน้าที่จองคิว</span>
           </div>
           <span class="item-arrow">›</span>
         </button>
@@ -293,17 +286,11 @@
               <div class="field-error" id="err-p-phone">กรุณาระบุเบอร์โทรศัพท์ 10 หลัก</div>
             </div>
 
-            <!-- Quick Service Selector Chips -->
+            <!-- Quick Service Selector Chips (Dynamically rendered) -->
             <div class="form-group">
-              <label>บริการ / อาการที่ต้องการรับการรักษา</label>
-              <div class="symptom-chips">
-                <button type="button" class="chip" onclick="selectChip(this, 'ตรวจสุขภาพช่องปากทั่วไป')">ตรวจช่องปาก</button>
-                <button type="button" class="chip" onclick="selectChip(this, 'ขูดหินปูน / ขัดฟัน')">ขูดหินปูน</button>
-                <button type="button" class="chip" onclick="selectChip(this, 'อุดฟัน')">อุดฟัน</button>
-                <button type="button" class="chip" onclick="selectChip(this, 'ถอนฟัน')">ถอนฟัน</button>
-                <button type="button" class="chip" onclick="selectChip(this, 'ปวดฟัน มีอาการเสียวฟัน')">ปวดฟัน/เสียวฟัน</button>
-                <button type="button" class="chip" onclick="selectChip(this, 'เหงือกอักเสบ / เลือดออกตามไรฟัน')">เหงือกอักเสบ</button>
-                <button type="button" class="chip" onclick="selectChip(this, 'ปรึกษาจัดฟัน/ฟันปลอม')">ปรึกษาฟันปลอม</button>
+              <label>บริการ / อาการที่ต้องการรับการรักษา (เลือกได้มากกว่า 1 รายการ)</label>
+              <div class="symptom-chips" id="patient-symptom-chips">
+                <!-- Populated dynamically by renderPatientSymptomChips() -->
               </div>
             </div>
 
@@ -623,6 +610,36 @@
               </div>
             </div>
           </div>
+
+          <!-- Service / Symptom Buttons Management Card (for Dental Staff & Admin) -->
+          <div class="card service-mgmt-card" style="margin-top: 1.5rem;">
+            <div class="card-header">
+              <div class="service-mgmt-head" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem;">
+                <div>
+                  <h3>🦷 จัดการปุ่มข้อความบริการ / อาการสำหรับผู้ป่วย</h3>
+                  <p class="card-desc">ทันตาภิบาลสามารถสร้าง เพิ่ม หรือลบปุ่มข้อความบริการที่แสดงในหน้าจองคิวของผู้ป่วยได้ทันที</p>
+                </div>
+                <button class="btn btn-outline btn-xs" onclick="handleResetServices()">
+                  🔄 คืนค่าปุ่มบริการเริ่มต้น
+                </button>
+              </div>
+            </div>
+
+            <!-- Add Service Form -->
+            <form class="add-service-form" onsubmit="handleAddServiceSubmit(event)" style="margin-bottom: 1.25rem;">
+              <div class="service-form-row" style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+                <input type="text" id="new-service-title" class="form-control" placeholder="พิมพ์ชื่อบริการ เช่น เคลือบหลุมร่องฟัน, ตรวจฟันเด็ก, ทันตกรรมผู้สูงอายุ..." required minlength="2" style="flex: 1; min-width: 220px;">
+                <button type="submit" class="btn btn-primary">
+                  <span>➕ เพิ่มปุ่มบริการใหม่</span>
+                </button>
+              </div>
+            </form>
+
+            <!-- Services Chips List -->
+            <div class="staff-services-list" id="staff-services-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
         </div>
 
         <!-- TAB 3: Statistics & Overview -->
@@ -760,9 +777,10 @@
         <div class="footer-brand-col">
           <div class="footer-brand">
             <div class="footer-logo">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2C8.5 2 6 4.5 6 7.5c0 3 1.5 5.5 2.5 8 .8 2 1.5 4.5 3.5 4.5s2.7-2.5 3.5-4.5c1-2.5 2.5-5 2.5-8C18 4.5 15.5 2 12 2z"/>
-                <path d="M9 7c1-1 2-1 3 0 1-1 2-1 3 0"/>
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 2C4.5 2 3 4.2 3 7C3 9.5 3.8 12.2 4.6 14.8C5.5 17.5 6 21 8.5 21C10.5 21 11 18.5 12 16.5C13 18.5 13.5 21 15.5 21C18 21 18.5 17.5 19.4 14.8C20.2 12.2 21 9.5 21 7C21 4.2 19.5 2 17 2C15 2 13.5 3.2 12 3.2C10.5 3.2 9 2 7 2Z" fill="#FFFFFF" stroke="#0284c7" stroke-width="1.8"/>
+                <path d="M6 7C6 5.5 7.2 4.5 9 4.2" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M11 6C11.3 5.8 11.6 5.7 12 5.7C12.4 5.7 12.7 5.8 13 6" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
               </svg>
             </div>
             <div>
@@ -1111,13 +1129,14 @@
           <div class="form-group">
             <label for="new-role-type">สิทธิ์การใช้งานในระบบ (Role) <span class="required">*</span></label>
             <select id="new-role-type" class="form-control" required onchange="handleRoleTypeChange()">
-              <option value="nurse">🩺 ทันตาภิบาล (Nurse) - จัดการคิวและเปิดรอบเวลา</option>
+              <option value="dentist">🩺 ทันตาภิบาล - จัดการคิวนัด ตอบกลับผู้ป่วย และเปิดรอบเวลา</option>
+              <option value="booking_staff">📋 เจ้าหน้าที่จองคิว - ดูแลคิวและลงทะเบียนนัดหมาย</option>
               <option value="admin">👑 ผู้ดูแลระบบ (Admin) - จัดการระบบและผู้ใช้ทั้งหมด</option>
             </select>
           </div>
           <div class="form-group">
             <label for="new-role-title">ตำแหน่งงาน</label>
-            <input type="text" id="new-role-title" class="form-control" placeholder="เช่น ทันตาภิบาลปฏิบัติการ, ผู้ช่วยทันตแพทย์" value="ทันตาภิบาลปฏิบัติการ">
+            <input type="text" id="new-role-title" class="form-control" placeholder="เช่น ทันตาภิบาลปฏิบัติการ, เจ้าหน้าที่เวชระเบียน" value="ทันตาภิบาลปฏิบัติการ">
           </div>
           <div class="form-group">
             <label for="new-password">รหัสผ่านเริ่มต้น <span class="required">*</span></label>
@@ -1130,6 +1149,61 @@
           <div class="modal-actions-dual">
             <button type="button" class="btn btn-outline" onclick="closeAddUserModal()">ยกเลิก</button>
             <button type="submit" class="btn btn-primary" id="btn-save-new-user">💾 บันทึกผู้ใช้ใหม่</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: ADMIN EDIT USER                          -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-edit-user">
+    <div class="modal-card modal-auth-card">
+      <div class="modal-header auth-modal-header" style="background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);">
+        <div class="auth-icon-badge">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </div>
+        <div>
+          <h3>แก้ไขข้อมูลผู้ใช้งาน (Edit User)</h3>
+          <p class="auth-modal-sub">แก้ไขชื่อ ตำแหน่ง สิทธิ์ หรือรหัสผ่านผู้ปฏิบัติงาน</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeEditUserModal()">✕</button>
+      </div>
+      <div class="modal-body auth-modal-body">
+        <div class="auth-error-box" id="edit-user-error" style="display: none;"></div>
+        <form id="form-edit-user" onsubmit="handleEditUserSubmit(event)">
+          <div class="form-group">
+            <label for="edit-username">ชื่อผู้ใช้งาน (Username)</label>
+            <input type="text" id="edit-username" class="form-control" readonly style="background: #f1f5f9; cursor: not-allowed; font-weight: 600;">
+            <small class="form-text text-muted">ชื่อผู้ใช้งานไม่สามารถเปลี่ยนแปลงได้</small>
+          </div>
+          <div class="form-group">
+            <label for="edit-name">ชื่อ - สกุล ผู้ปฏิบัติงาน <span class="required">*</span></label>
+            <input type="text" id="edit-name" class="form-control" placeholder="เช่น ทภ. สมชาย ใจดี" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-role-type">สิทธิ์การใช้งานในระบบ (Role) <span class="required">*</span></label>
+            <select id="edit-role-type" class="form-control" required onchange="handleEditRoleTypeChange()">
+              <option value="dentist">🩺 ทันตาภิบาล - จัดการคิวนัด ตอบกลับผู้ป่วย และเปิดรอบเวลา</option>
+              <option value="booking_staff">📋 เจ้าหน้าที่จองคิว - ดูแลคิวและลงทะเบียนนัดหมาย</option>
+              <option value="admin">👑 ผู้ดูแลระบบ (Admin) - จัดการระบบและผู้ใช้ทั้งหมด</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-role-title">ตำแหน่งงาน</label>
+            <input type="text" id="edit-role-title" class="form-control" placeholder="เช่น ทันตาภิบาลปฏิบัติการ, เจ้าหน้าที่เวชระเบียน">
+          </div>
+          <div class="form-group">
+            <label for="edit-password">รหัสผ่านใหม่ (หากไม่ต้องการเปลี่ยนให้เว้นว่างไว้)</label>
+            <input type="password" id="edit-password" class="form-control" placeholder="เว้นว่างไว้หากใช้รหัสผ่านเดิม (ขั้นต่ำ 4 ตัวอักษร)" minlength="4">
+          </div>
+          <div class="modal-actions-dual">
+            <button type="button" class="btn btn-outline" onclick="closeEditUserModal()">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-edit-user">💾 บันทึกการแก้ไข</button>
           </div>
         </form>
       </div>

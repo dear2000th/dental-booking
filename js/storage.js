@@ -8,8 +8,19 @@ const STORAGE_KEYS = {
   SCHEDULE: 'dental_app_schedule',
   STAFF_AUTH: 'dental_app_staff_auth',
   STAFF_USERS: 'dental_app_staff_users',
-  LOGIN_LOCKOUT: 'dental_app_login_lockout'
+  LOGIN_LOCKOUT: 'dental_app_login_lockout',
+  SERVICES: 'dental_app_services'
 };
+
+// Default service chips for patients
+const DEFAULT_SERVICES = [
+  { id: 'srv-1', title: 'ตรวจสุขภาพช่องปากและฟัน' },
+  { id: 'srv-2', title: 'ขูดหินปูน' },
+  { id: 'srv-3', title: 'อุดฟัน' },
+  { id: 'srv-4', title: 'ถอนฟัน' },
+  { id: 'srv-5', title: 'ปวดฟัน / เสียวฟัน / เหงือกบวม' },
+  { id: 'srv-6', title: 'ปรึกษาทันตกรรมทั่วไป' }
+];
 
 // Cryptographic Standard SHA-256 Hash Algorithm (Synchronous)
 function cryptoSha256(ascii) {
@@ -325,20 +336,40 @@ function getInitialAppointments() {
 function getInitialStaffUsers() {
   return [
     {
-      username: 'nurse',
-      name: 'ทภ. รัตนา พงษ์สวัสดิ์',
-      role: 'ทันตาภิบาลปฏิบัติการ',
-      roleType: 'nurse',
+      username: 'admin',
+      name: 'นายเดียร์ เบญจาวิริยะวงศ์',
+      role: 'ผู้ดูแลระบบ (Admin)',
+      roleType: 'admin',
       passwordHash: cryptoSha256('1234_dental_salt_2026'),
       status: 'ACTIVE',
       createdAt: '2026-11-01T08:00:00.000Z',
       lastLogin: null
     },
     {
-      username: 'admin',
-      name: 'นายเดียร์ เบญจาวิริยะวงศ์',
-      role: 'นักวิชาการสาธารณสุข (ผู้ดูแลระบบ)',
-      roleType: 'admin',
+      username: 'dentist',
+      name: 'ทภ. รัตนา พงษ์สวัสดิ์',
+      role: 'ทันตาภิบาลปฏิบัติการ',
+      roleType: 'dentist',
+      passwordHash: cryptoSha256('1234_dental_salt_2026'),
+      status: 'ACTIVE',
+      createdAt: '2026-11-01T08:00:00.000Z',
+      lastLogin: null
+    },
+    {
+      username: 'nurse',
+      name: 'ทภ. รัตนา พงษ์สวัสดิ์',
+      role: 'ทันตาภิบาลปฏิบัติการ',
+      roleType: 'dentist',
+      passwordHash: cryptoSha256('1234_dental_salt_2026'),
+      status: 'ACTIVE',
+      createdAt: '2026-11-01T08:00:00.000Z',
+      lastLogin: null
+    },
+    {
+      username: 'staff',
+      name: 'เจ้าหน้าที่จองคิว รพ.สต.ควนลัง',
+      role: 'เจ้าหน้าที่จองคิวและเวชระเบียน',
+      roleType: 'booking_staff',
       passwordHash: cryptoSha256('1234_dental_salt_2026'),
       status: 'ACTIVE',
       createdAt: '2026-11-01T08:00:00.000Z',
@@ -361,6 +392,9 @@ class DentalStorage {
     }
     if (!localStorage.getItem(STORAGE_KEYS.STAFF_USERS)) {
       localStorage.setItem(STORAGE_KEYS.STAFF_USERS, JSON.stringify(getInitialStaffUsers()));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.SERVICES)) {
+      localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(DEFAULT_SERVICES));
     }
     this.initFirestoreSync();
   }
@@ -425,6 +459,25 @@ class DentalStorage {
         localStorage.setItem(STORAGE_KEYS.STAFF_USERS, JSON.stringify(cloudUsers));
       }, (err) => {
         console.warn('Firestore staff_users sync notice:', err);
+      });
+
+      // 4. Listen to Services document in real-time
+      firebaseDb.collection('services').doc('main').onSnapshot((doc) => {
+        if (doc.exists) {
+          const cloudData = doc.data();
+          if (cloudData && Array.isArray(cloudData.list) && cloudData.list.length > 0) {
+            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(cloudData.list));
+            window.dispatchEvent(new CustomEvent('dental:data-synced', { detail: { type: 'services', count: cloudData.list.length } }));
+          }
+        } else {
+          const currentServices = this.getServices();
+          firebaseDb.collection('services').doc('main').set({
+            list: currentServices,
+            updatedAt: new Date().toISOString()
+          }).catch(e => console.warn('Firestore services seed error:', e));
+        }
+      }, (err) => {
+        console.warn('Firestore services sync notice:', err);
       });
 
     } catch (e) {
@@ -712,10 +765,24 @@ class DentalStorage {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.STAFF_USERS);
       const list = data ? JSON.parse(data) : getInitialStaffUsers();
-      return list.map(u => ({
-        ...u,
-        roleType: u.roleType || (u.username.toLowerCase() === 'admin' || (u.role && u.role.includes('ผู้ดูแลระบบ')) ? 'admin' : 'nurse')
-      }));
+      return list.map(u => {
+        let rType = u.roleType;
+        if (!rType) {
+          if (u.username.toLowerCase() === 'admin' || (u.role && u.role.includes('ผู้ดูแลระบบ'))) {
+            rType = 'admin';
+          } else if (u.username.toLowerCase() === 'staff' || (u.role && u.role.includes('จองคิว'))) {
+            rType = 'booking_staff';
+          } else {
+            rType = 'dentist';
+          }
+        }
+        // Normalize 'nurse' to 'dentist' internally for roleType display
+        if (rType === 'nurse') rType = 'dentist';
+        return {
+          ...u,
+          roleType: rType
+        };
+      });
     } catch (e) {
       return getInitialStaffUsers();
     }
@@ -735,6 +802,20 @@ class DentalStorage {
     );
   }
 
+  canManageSettings() {
+    const staff = this.getLoggedInStaff();
+    if (!staff) return false;
+    return (
+      staff.roleType === 'admin' ||
+      staff.roleType === 'dentist' ||
+      staff.roleType === 'nurse' ||
+      staff.username.toLowerCase() === 'admin' ||
+      staff.username.toLowerCase() === 'dentist' ||
+      staff.username.toLowerCase() === 'nurse' ||
+      (staff.role && (staff.role.includes('ผู้ดูแลระบบ') || staff.role.includes('ทันตาภิบาล')))
+    );
+  }
+
   addStaffUser(userData) {
     if (!this.isStaffAdmin()) {
       return { success: false, error: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเพิ่มผู้ใช้งานได้' };
@@ -742,8 +823,16 @@ class DentalStorage {
 
     const cleanUsername = (userData.username || '').trim().toLowerCase();
     const cleanName = (userData.name || '').trim();
-    const cleanRoleType = (userData.roleType === 'admin') ? 'admin' : 'nurse';
-    const cleanRole = (userData.role || '').trim() || (cleanRoleType === 'admin' ? 'ผู้ดูแลระบบ (Admin)' : 'ทันตาภิบาลปฏิบัติการ');
+    let cleanRoleType = 'dentist';
+    if (userData.roleType === 'admin') cleanRoleType = 'admin';
+    else if (userData.roleType === 'booking_staff') cleanRoleType = 'booking_staff';
+    else cleanRoleType = 'dentist';
+
+    let defaultRoleName = 'ทันตาภิบาลปฏิบัติการ';
+    if (cleanRoleType === 'admin') defaultRoleName = 'ผู้ดูแลระบบ (Admin)';
+    else if (cleanRoleType === 'booking_staff') defaultRoleName = 'เจ้าหน้าที่จองคิวและเวชระเบียน';
+
+    const cleanRole = (userData.role || '').trim() || defaultRoleName;
     const cleanPassword = (userData.password || '').trim();
 
     if (!cleanUsername || cleanUsername.length < 3) {
@@ -786,6 +875,63 @@ class DentalStorage {
     return { success: true, user: newUser };
   }
 
+  updateStaffUser(username, updateData) {
+    if (!this.isStaffAdmin()) {
+      return { success: false, error: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถแก้ไขข้อมูลผู้ใช้งานได้' };
+    }
+
+    const cleanTarget = (username || '').trim().toLowerCase();
+    const users = this.getStaffUsers();
+    const targetIndex = users.findIndex(u => u.username.toLowerCase() === cleanTarget);
+    if (targetIndex === -1) {
+      return { success: false, error: 'ไม่พบบัญชีผู้ใช้งานที่ต้องการแก้ไขในระบบ' };
+    }
+
+    const user = users[targetIndex];
+
+    if (updateData.name && updateData.name.trim().length >= 3) {
+      user.name = updateData.name.trim();
+    }
+    if (updateData.role && updateData.role.trim()) {
+      user.role = updateData.role.trim();
+    }
+    if (updateData.roleType) {
+      const newRoleType = (updateData.roleType === 'admin') ? 'admin' : 
+                          (updateData.roleType === 'booking_staff') ? 'booking_staff' : 'dentist';
+
+      // If demoting an admin, ensure at least 1 admin remains
+      if (user.roleType === 'admin' && newRoleType !== 'admin') {
+        const adminCount = users.filter(u => u.roleType === 'admin' || u.username.toLowerCase() === 'admin').length;
+        if (adminCount <= 1) {
+          return { success: false, error: 'ไม่สามารถเปลี่ยนสิทธิ์ได้ เนื่องจากระบบต้องมีผู้ดูแลระบบ (Admin) อย่างน้อย 1 บัญชี' };
+        }
+      }
+      user.roleType = newRoleType;
+    }
+
+    if (updateData.password && updateData.password.trim().length >= 4) {
+      user.passwordHash = cryptoSha256(updateData.password.trim() + '_dental_salt_2026');
+    }
+
+    user.updatedAt = new Date().toISOString();
+    users[targetIndex] = user;
+    this.saveStaffUsers(users);
+
+    // Sync session if updating currently logged in account
+    const currentStaff = this.getLoggedInStaff();
+    if (currentStaff && currentStaff.username.toLowerCase() === cleanTarget) {
+      sessionStorage.setItem(STORAGE_KEYS.STAFF_AUTH, JSON.stringify(user));
+    }
+
+    if (typeof firebaseDb !== 'undefined' && firebaseDb) {
+      firebaseDb.collection('staff_users').doc(cleanTarget).set(user, { merge: true })
+        .catch(e => console.warn('Cloud update user error:', e));
+    }
+
+    this.broadcastChange();
+    return { success: true, user };
+  }
+
   deleteStaffUser(username) {
     if (!this.isStaffAdmin()) {
       return { success: false, error: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลบผู้ใช้งานได้' };
@@ -824,6 +970,75 @@ class DentalStorage {
 
     this.broadcastChange();
     return { success: true };
+  }
+
+  // --- Service / Symptom Chips APIs ---
+  getServices() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.SERVICES);
+      if (!raw) {
+        localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(DEFAULT_SERVICES));
+        return DEFAULT_SERVICES;
+      }
+      const list = JSON.parse(raw);
+      return (Array.isArray(list) && list.length > 0) ? list : DEFAULT_SERVICES;
+    } catch (e) {
+      return DEFAULT_SERVICES;
+    }
+  }
+
+  saveServices(servicesList) {
+    if (!Array.isArray(servicesList)) return;
+    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(servicesList));
+    if (typeof firebaseDb !== 'undefined' && firebaseDb) {
+      firebaseDb.collection('services').doc('main').set({
+        list: servicesList,
+        updatedAt: new Date().toISOString()
+      }).catch(e => console.warn('Cloud save services notice:', e));
+    }
+    this.broadcastChange();
+  }
+
+  addService(title) {
+    if (!this.canManageSettings()) {
+      return { success: false, error: 'เฉพาะทันตาภิบาลหรือผู้ดูแลระบบเท่านั้นที่สามารถเพิ่มปุ่มบริการได้' };
+    }
+    const cleanTitle = (title || '').trim();
+    if (!cleanTitle || cleanTitle.length < 2) {
+      return { success: false, error: 'กรุณาระบุชื่อบริการหรืออาการอย่างน้อย 2 ตัวอักษร' };
+    }
+    const list = this.getServices();
+    if (list.some(s => s.title.toLowerCase() === cleanTitle.toLowerCase())) {
+      return { success: false, error: 'มีชื่อบริการนี้อยู่ในระบบแล้ว' };
+    }
+    const newService = {
+      id: 'srv-' + Date.now(),
+      title: cleanTitle
+    };
+    list.push(newService);
+    this.saveServices(list);
+    return { success: true, service: newService };
+  }
+
+  deleteService(serviceId) {
+    if (!this.canManageSettings()) {
+      return { success: false, error: 'เฉพาะทันตาภิบาลหรือผู้ดูแลระบบเท่านั้นที่สามารถลบปุ่มบริการได้' };
+    }
+    const list = this.getServices();
+    const filtered = list.filter(s => s.id !== serviceId && s.title !== serviceId);
+    if (filtered.length === 0) {
+      return { success: false, error: 'ระบบต้องมีปุ่มบริการอย่างน้อย 1 รายการ' };
+    }
+    this.saveServices(filtered);
+    return { success: true };
+  }
+
+  resetServicesToDefault() {
+    if (!this.canManageSettings()) {
+      return { success: false, error: 'เฉพาะทันตาภิบาลหรือผู้ดูแลระบบเท่านั้นที่สามารถคืนค่าปุ่มบริการได้' };
+    }
+    this.saveServices(DEFAULT_SERVICES);
+    return { success: true, list: DEFAULT_SERVICES };
   }
 
   adminResetPassword(username, newPassword) {
@@ -953,7 +1168,18 @@ class DentalStorage {
       }
 
       // Create cryptographically signed session (8-hour expiry)
-      const roleType = user.roleType || (user.username.toLowerCase() === 'admin' || (user.role && user.role.includes('ผู้ดูแลระบบ')) ? 'admin' : 'nurse');
+      let roleType = user.roleType;
+      if (!roleType) {
+        if (user.username.toLowerCase() === 'admin' || (user.role && user.role.includes('ผู้ดูแลระบบ'))) {
+          roleType = 'admin';
+        } else if (user.username.toLowerCase() === 'staff' || (user.role && user.role.includes('จองคิว'))) {
+          roleType = 'booking_staff';
+        } else {
+          roleType = 'dentist';
+        }
+      }
+      if (roleType === 'nurse') roleType = 'dentist';
+
       const sessionData = {
         token: 'sec_' + Date.now() + '_' + Math.random().toString(36).substr(2),
         username: user.username,
