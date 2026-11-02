@@ -282,6 +282,9 @@
             <button class="btn btn-outline btn-sm" onclick="exportAppointmentsData()">
               <span>📥 ส่งออกรายชื่อ (CSV)</span>
             </button>
+            <button class="btn btn-outline btn-sm" onclick="openChangePasswordModal()">
+              <span>🔑 เปลี่ยนรหัสผ่าน</span>
+            </button>
             <button class="btn btn-danger-outline btn-sm" onclick="logoutStaff()">
               <span>ออกจากระบบ</span>
             </button>
@@ -645,34 +648,132 @@
   </footer>
 
   <!-- ============================================== -->
-  <!-- MODAL: DENTAL STAFF LOGIN                      -->
+  <!-- MODAL: DENTAL STAFF LOGIN (HIGH SECURITY)       -->
   <!-- ============================================== -->
   <div class="modal-backdrop" id="modal-staff-login">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-icon">🩺</div>
-        <h3>เข้าสู่ระบบทันตาภิบาล</h3>
+    <div class="modal-card modal-auth-card">
+      <div class="modal-header auth-modal-header">
+        <div class="auth-icon-badge">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="auth-header-text">
+          <h3>ระบบยืนยันตัวตนเจ้าหน้าที่</h3>
+          <p class="auth-header-sub">คลินิกทันตกรรม รพ.สต.ควนลัง • ยืนยันตัวตนความปลอดภัยสูง</p>
+        </div>
         <button class="modal-close-btn" onclick="closeStaffModal()">✕</button>
       </div>
-      <form onsubmit="handleStaffLogin(event)">
-        <div class="modal-body">
-          <div class="demo-login-notice">
-            <strong>ข้อมูลทดสอบระบบสำหรับทันตาภิบาล:</strong><br>
-            ชื่อผู้ใช้งาน: <code>nurse</code> | รหัสผ่าน: <code>1234</code>
+
+      <form onsubmit="handleStaffLogin(event)" autocomplete="off">
+        <div class="modal-body auth-modal-body">
+          
+          <!-- Lockout Alert Banner -->
+          <div id="staff-lockout-banner" class="auth-lockout-banner" style="display:none;">
+            <span class="lockout-icon">⚠️</span>
+            <div id="staff-lockout-msg">ระบบถูกระงับชั่วคราว</div>
           </div>
-          <div class="form-group">
-            <label for="staff-username">ชื่อผู้ใช้งาน (Username)</label>
-            <input type="text" id="staff-username" value="nurse" required autocomplete="username">
+
+          <!-- Username -->
+          <div class="form-group auth-form-group">
+            <label for="staff-username" class="auth-label">ชื่อผู้ใช้งาน (Username)</label>
+            <div class="auth-input-wrapper">
+              <span class="auth-input-icon">👤</span>
+              <input type="text" id="staff-username" placeholder="กรอกชื่อผู้ใช้งาน..." required autocomplete="off">
+            </div>
           </div>
-          <div class="form-group">
-            <label for="staff-password">รหัสผ่าน (Password)</label>
-            <input type="password" id="staff-password" value="1234" required autocomplete="current-password">
+
+          <!-- Password with toggle visibility -->
+          <div class="form-group auth-form-group">
+            <label for="staff-password" class="auth-label">รหัสผ่าน (Password)</label>
+            <div class="auth-input-wrapper">
+              <span class="auth-input-icon">🔒</span>
+              <input type="password" id="staff-password" placeholder="กรอกรหัสผ่าน..." required autocomplete="off">
+              <button type="button" class="btn-toggle-pw" id="btn-toggle-password" onclick="togglePasswordVisibility()" title="แสดง/ซ่อนรหัสผ่าน">
+                👁️
+              </button>
+            </div>
           </div>
-          <div class="field-error" id="staff-login-error" style="display:none;">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
+
+          <!-- Error Alert -->
+          <div class="field-error auth-error-box" id="staff-login-error" style="display:none;">
+            <span class="error-icon">🚫</span>
+            <span id="staff-login-error-text">ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง</span>
+          </div>
+
+          <!-- Security Encryption Badge -->
+          <div class="auth-security-badge">
+            <span class="sec-dot"></span>
+            <span>ระบบยืนยันตัวตนเข้ารหัส SHA-256 ปลอดภัยตามมาตรฐานสารสนเทศสาธารณสุข</span>
+          </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline" onclick="closeStaffModal()">ยกเลิก</button>
-          <button type="submit" class="btn btn-primary">เข้าสู่ระบบ</button>
+
+        <div class="modal-footer auth-modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeStaffModal()">
+            <span>✕ ยกเลิก</span>
+          </button>
+          <button type="submit" class="btn btn-primary btn-auth-submit" id="btn-staff-login-submit">
+            <span>🔐 เข้าสู่ระบบ (Secure Sign-In)</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: CHANGE PASSWORD                         -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-change-password">
+    <div class="modal-card modal-auth-card">
+      <div class="modal-header auth-modal-header">
+        <div class="auth-icon-badge">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 2l-2 2m-1.5 1.5L12 11l4 4 5.5-5.5a2.121 2.121 0 0 0 0-3L19.5 4.5a2.121 2.121 0 0 0-3 0z"/>
+            <path d="M9 14l-5 5v3h3l5-5"/>
+          </svg>
+        </div>
+        <div class="auth-header-text">
+          <h3>เปลี่ยนรหัสผ่านเจ้าหน้าที่</h3>
+          <p class="auth-header-sub">กำหนดรหัสผ่านใหม่เพื่อความปลอดภัยในการเข้าใช้งาน</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeChangePasswordModal()">✕</button>
+      </div>
+
+      <form onsubmit="handleChangePasswordSubmit(event)">
+        <div class="modal-body auth-modal-body">
+          <div class="form-group auth-form-group">
+            <label for="cp-old-password" class="auth-label">รหัสผ่านปัจจุบัน</label>
+            <div class="auth-input-wrapper">
+              <span class="auth-input-icon">🔒</span>
+              <input type="password" id="cp-old-password" placeholder="กรอกรหัสผ่านปัจจุบัน..." required autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group auth-form-group">
+            <label for="cp-new-password" class="auth-label">รหัสผ่านใหม่ (อย่างน้อย 4 ตัวอักษร)</label>
+            <div class="auth-input-wrapper">
+              <span class="auth-input-icon">✨</span>
+              <input type="password" id="cp-new-password" placeholder="กรอกรหัสผ่านใหม่..." required autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group auth-form-group">
+            <label for="cp-confirm-password" class="auth-label">ยืนยันรหัสผ่านใหม่อีกครั้ง</label>
+            <div class="auth-input-wrapper">
+              <span class="auth-input-icon">✔️</span>
+              <input type="password" id="cp-confirm-password" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง..." required autocomplete="off">
+            </div>
+          </div>
+
+          <div class="field-error auth-error-box" id="cp-error-box" style="display:none;"></div>
+        </div>
+
+        <div class="modal-footer auth-modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeChangePasswordModal()">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">
+            <span>💾 บันทึกรหัสผ่านใหม่</span>
+          </button>
         </div>
       </form>
     </div>

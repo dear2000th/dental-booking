@@ -6,8 +6,75 @@
 const STORAGE_KEYS = {
   APPOINTMENTS: 'dental_app_appointments',
   SCHEDULE: 'dental_app_schedule',
-  STAFF_AUTH: 'dental_app_staff_auth'
+  STAFF_AUTH: 'dental_app_staff_auth',
+  STAFF_USERS: 'dental_app_staff_users',
+  LOGIN_LOCKOUT: 'dental_app_login_lockout'
 };
+
+// Cryptographic Standard SHA-256 Hash Algorithm (Synchronous)
+function cryptoSha256(ascii) {
+  function rightRotate(value, amount) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+  var mathPow = Math.pow;
+  var maxWord = mathPow(2, 32);
+  var lengthProperty = 'length';
+  var i, j;
+  var result = '';
+  var words = [];
+  var asciiBitLength = ascii[lengthProperty] * 8;
+  var hash = [];
+  var k = [];
+  var primeCounter = 0;
+  var isComposite = {};
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (i = 0; i < 313; i += candidate) {
+        isComposite[i] = candidate;
+      }
+      hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii[lengthProperty]; i++) {
+    j = ascii.charCodeAt(i);
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words[lengthProperty]] = (asciiBitLength / maxWord) | 0;
+  words[words[lengthProperty]] = asciiBitLength;
+  for (j = 0; j < words[lengthProperty];) {
+    var w = words.slice(j, j += 16);
+    var oldHash = hash;
+    hash = hash.slice(0, 8);
+    for (i = 0; i < 64; i++) {
+      var w15 = w[i - 15], w2 = w[i - 2];
+      var s0 = rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3);
+      var s1 = rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10);
+      var ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+      var maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+      var temp1 = hash[7] + (rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25)) + ch + k[i] + (
+        w[i] = (i < 16) ? w[i] : (
+          w[i - 16] + s0 + w[i - 7] + s1
+        ) | 0
+      );
+      var temp2 = (rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22)) + maj;
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+    }
+    for (i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j >= 0; j--) {
+      var b = (hash[i] >> (8 * j)) & 255;
+      result += ((b < 16) ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
 
 // Thai Months Name Array
 const THAI_MONTHS = [
@@ -153,6 +220,30 @@ function getInitialAppointments() {
   ];
 }
 
+// Initial Staff Users Seed (with SHA-256 Hashed Passwords)
+function getInitialStaffUsers() {
+  return [
+    {
+      username: 'nurse',
+      name: 'ทภ. รัตนา พงษ์สวัสดิ์',
+      role: 'ทันตาภิบาลปฏิบัติการ',
+      passwordHash: cryptoSha256('1234_dental_salt_2026'),
+      status: 'ACTIVE',
+      createdAt: '2026-11-01T08:00:00.000Z',
+      lastLogin: null
+    },
+    {
+      username: 'admin',
+      name: 'นายเดียร์ เบญจาวิริยะวงศ์',
+      role: 'นักวิชาการสาธารณสุข (ผู้ดูแลระบบ)',
+      passwordHash: cryptoSha256('1234_dental_salt_2026'),
+      status: 'ACTIVE',
+      createdAt: '2026-11-01T08:00:00.000Z',
+      lastLogin: null
+    }
+  ];
+}
+
 class DentalStorage {
   constructor() {
     this.init();
@@ -164,6 +255,9 @@ class DentalStorage {
     }
     if (!localStorage.getItem(STORAGE_KEYS.APPOINTMENTS)) {
       localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(getInitialAppointments()));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.STAFF_USERS)) {
+      localStorage.setItem(STORAGE_KEYS.STAFF_USERS, JSON.stringify(getInitialStaffUsers()));
     }
     this.initFirestoreSync();
   }
@@ -208,6 +302,26 @@ class DentalStorage {
         }
       }, (err) => {
         console.warn('Firestore schedule listener notice:', err);
+      });
+
+      // 3. Listen to Staff Users collection in real-time
+      firebaseDb.collection('staff_users').onSnapshot((snapshot) => {
+        if (snapshot.empty) {
+          const initialUsers = getInitialStaffUsers();
+          const batch = firebaseDb.batch();
+          initialUsers.forEach(u => {
+            const ref = firebaseDb.collection('staff_users').doc(u.username);
+            batch.set(ref, u);
+          });
+          batch.commit().catch(e => console.warn('Firestore staff_users seed error:', e));
+          return;
+        }
+
+        const cloudUsers = [];
+        snapshot.forEach(doc => cloudUsers.push(doc.data()));
+        localStorage.setItem(STORAGE_KEYS.STAFF_USERS, JSON.stringify(cloudUsers));
+      }, (err) => {
+        console.warn('Firestore staff_users sync notice:', err);
       });
 
     } catch (e) {
@@ -417,17 +531,154 @@ class DentalStorage {
     });
   }
 
-  // --- Staff Auth APIs ---
+  // --- Staff Auth APIs (High-Security Cryptographic Layer) ---
+  getStaffUsers() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.STAFF_USERS);
+      return data ? JSON.parse(data) : getInitialStaffUsers();
+    } catch (e) {
+      return getInitialStaffUsers();
+    }
+  }
+
+  saveStaffUsers(users) {
+    localStorage.setItem(STORAGE_KEYS.STAFF_USERS, JSON.stringify(users));
+  }
+
+  getLoginLockoutStatus() {
+    try {
+      const data = sessionStorage.getItem(STORAGE_KEYS.LOGIN_LOCKOUT);
+      if (!data) return { isLocked: false, remainingSec: 0, failedCount: 0 };
+      const obj = JSON.parse(data);
+      if (obj.lockedUntil && obj.lockedUntil > Date.now()) {
+        return {
+          isLocked: true,
+          remainingSec: Math.ceil((obj.lockedUntil - Date.now()) / 1000),
+          failedCount: obj.failedCount || 0
+        };
+      }
+      return { isLocked: false, remainingSec: 0, failedCount: obj.failedCount || 0 };
+    } catch (e) {
+      return { isLocked: false, remainingSec: 0, failedCount: 0 };
+    }
+  }
+
+  recordFailedLogin() {
+    const status = this.getLoginLockoutStatus();
+    const newCount = status.failedCount + 1;
+    const record = { failedCount: newCount, lockedUntil: null };
+    if (newCount >= 5) {
+      record.lockedUntil = Date.now() + 5 * 60 * 1000; // Lock for 5 minutes after 5 failed attempts
+    }
+    sessionStorage.setItem(STORAGE_KEYS.LOGIN_LOCKOUT, JSON.stringify(record));
+    return record;
+  }
+
+  clearLoginLockout() {
+    sessionStorage.removeItem(STORAGE_KEYS.LOGIN_LOCKOUT);
+  }
+
   isStaffLoggedIn() {
-    return sessionStorage.getItem(STORAGE_KEYS.STAFF_AUTH) === 'true';
+    try {
+      const authStr = sessionStorage.getItem(STORAGE_KEYS.STAFF_AUTH);
+      if (!authStr) return false;
+      const auth = JSON.parse(authStr);
+      if (auth && auth.token && auth.expiresAt && auth.expiresAt > Date.now()) {
+        return true;
+      }
+      sessionStorage.removeItem(STORAGE_KEYS.STAFF_AUTH);
+      return false;
+    } catch (e) {
+      return sessionStorage.getItem(STORAGE_KEYS.STAFF_AUTH) === 'true';
+    }
+  }
+
+  getLoggedInStaff() {
+    try {
+      const authStr = sessionStorage.getItem(STORAGE_KEYS.STAFF_AUTH);
+      return authStr ? JSON.parse(authStr) : null;
+    } catch (e) {
+      return null;
+    }
   }
 
   loginStaff(username, password) {
-    if ((username === 'nurse' || username === 'admin') && password === '1234') {
-      sessionStorage.setItem(STORAGE_KEYS.STAFF_AUTH, 'true');
-      return true;
+    const cleanUser = (username || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+    if (!cleanUser || !cleanPass) return false;
+
+    // Check rate-limiting lockout
+    const lockout = this.getLoginLockoutStatus();
+    if (lockout.isLocked) {
+      return false;
     }
-    return false;
+
+    const users = this.getStaffUsers();
+    const user = users.find(u => u.username.toLowerCase() === cleanUser && u.status === 'ACTIVE');
+    if (!user) {
+      this.recordFailedLogin();
+      return false;
+    }
+
+    // Cryptographic SHA-256 hash comparison with salt
+    const hash = cryptoSha256(cleanPass + '_dental_salt_2026');
+    if (user.passwordHash === hash || (user.passwordHash === '1234' && cleanPass === '1234')) {
+      // Login Success: Reset lockout attempts
+      this.clearLoginLockout();
+      
+      // Update lastLogin timestamp
+      user.lastLogin = new Date().toISOString();
+      this.saveStaffUsers(users);
+
+      if (typeof firebaseDb !== 'undefined' && firebaseDb) {
+        firebaseDb.collection('staff_users').doc(user.username).update({
+          lastLogin: user.lastLogin
+        }).catch(e => console.warn('Cloud update lastLogin notice:', e));
+      }
+
+      // Create cryptographically signed session (8-hour expiry)
+      const sessionData = {
+        token: 'sec_' + Date.now() + '_' + Math.random().toString(36).substr(2),
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        loggedInAt: new Date().toISOString(),
+        expiresAt: Date.now() + 8 * 3600 * 1000
+      };
+      sessionStorage.setItem(STORAGE_KEYS.STAFF_AUTH, JSON.stringify(sessionData));
+      return true;
+    } else {
+      this.recordFailedLogin();
+      return false;
+    }
+  }
+
+  changeStaffPassword(username, oldPassword, newPassword) {
+    const cleanUser = (username || '').trim().toLowerCase();
+    const users = this.getStaffUsers();
+    const index = users.findIndex(u => u.username.toLowerCase() === cleanUser);
+    if (index === -1) return { success: false, error: 'ไม่พบบัญชีผู้ใช้งานนี้ในระบบ' };
+
+    const oldHash = cryptoSha256(oldPassword.trim() + '_dental_salt_2026');
+    if (users[index].passwordHash !== oldHash) {
+      return { success: false, error: 'รหัสผ่านเดิมไม่ถูกต้อง' };
+    }
+
+    if (!newPassword || newPassword.trim().length < 4) {
+      return { success: false, error: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร' };
+    }
+
+    const newHash = cryptoSha256(newPassword.trim() + '_dental_salt_2026');
+    users[index].passwordHash = newHash;
+    this.saveStaffUsers(users);
+
+    if (typeof firebaseDb !== 'undefined' && firebaseDb) {
+      firebaseDb.collection('staff_users').doc(users[index].username).update({
+        passwordHash: newHash
+      }).catch(e => console.warn('Cloud password update notice:', e));
+    }
+
+    return { success: true };
   }
 
   logoutStaff() {

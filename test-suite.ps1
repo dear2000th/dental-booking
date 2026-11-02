@@ -114,18 +114,19 @@ if ($IndexDomString -notmatch 'จัดทำโดย: นายเดีย�
     exit 1
 }
 
-# Verify LINE components are completely gone
+# Verify LINE & Insecure test components are completely gone
 $RemovedComponents = @(
     'p-line-id',
     'reply-auto-push-checkbox',
     'btn-patient-share-line',
     'modal-line-action',
-    'modal-line-settings'
+    'modal-line-settings',
+    'demo-login-notice'
 )
 
 foreach ($comp in $RemovedComponents) {
     if ($IndexDomString -match $comp) {
-        Write-Host "FAIL: index.html still contains LINE component: $comp" -ForegroundColor Red
+        Write-Host "FAIL: index.html still contains insecure/deprecated component: $comp" -ForegroundColor Red
         exit 1
     }
 }

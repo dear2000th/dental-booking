@@ -97,13 +97,56 @@ function openStaffModal() {
   if (window.dentalStorage.isStaffLoggedIn()) {
     switchView('staff');
   } else {
+    // Clear credentials for maximum security
+    const uInput = document.getElementById('staff-username');
+    const pInput = document.getElementById('staff-password');
+    if (uInput) uInput.value = '';
+    if (pInput) pInput.value = '';
+    
+    // Reset password visibility
+    if (pInput) pInput.type = 'password';
+    const pwBtn = document.getElementById('btn-toggle-password');
+    if (pwBtn) pwBtn.textContent = '👁️';
+
+    // Check lockout status
+    const lockout = window.dentalStorage.getLoginLockoutStatus();
+    const banner = document.getElementById('staff-lockout-banner');
+    const errEl = document.getElementById('staff-login-error');
+    if (errEl) errEl.style.display = 'none';
+
+    if (banner) {
+      if (lockout.isLocked) {
+        banner.style.display = 'flex';
+        document.getElementById('staff-lockout-msg').textContent = `ระงับการเข้าสู่ระบบชั่วคราวเพื่อความปลอดภัย กรุณารออีก ${lockout.remainingSec} วินาที`;
+        document.getElementById('btn-staff-login-submit').disabled = true;
+      } else {
+        banner.style.display = 'none';
+        document.getElementById('btn-staff-login-submit').disabled = false;
+      }
+    }
+
     document.getElementById('modal-staff-login').classList.add('show');
-    document.getElementById('staff-username').focus();
+    if (uInput && !lockout.isLocked) setTimeout(() => uInput.focus(), 100);
   }
 }
 
 function closeStaffModal() {
   document.getElementById('modal-staff-login').classList.remove('show');
+}
+
+function togglePasswordVisibility() {
+  const pInput = document.getElementById('staff-password');
+  const btn = document.getElementById('btn-toggle-password');
+  if (!pInput || !btn) return;
+  if (pInput.type === 'password') {
+    pInput.type = 'text';
+    btn.textContent = '🙈';
+    btn.title = 'ซ่อนรหัสผ่าน';
+  } else {
+    pInput.type = 'password';
+    btn.textContent = '👁️';
+    btn.title = 'แสดงรหัสผ่าน';
+  }
 }
 
 /* ============================================================
@@ -685,16 +728,94 @@ function handleStaffLogin(event) {
   const u = document.getElementById('staff-username').value.trim();
   const p = document.getElementById('staff-password').value.trim();
   const errEl = document.getElementById('staff-login-error');
+  const errText = document.getElementById('staff-login-error-text');
+  const banner = document.getElementById('staff-lockout-banner');
+
+  const lockoutBefore = window.dentalStorage.getLoginLockoutStatus();
+  if (lockoutBefore.isLocked) {
+    if (banner) {
+      banner.style.display = 'flex';
+      document.getElementById('staff-lockout-msg').textContent = `ระงับการเข้าสู่ระบบชั่วคราวเพื่อความปลอดภัย กรุณารออีก ${lockoutBefore.remainingSec} วินาที`;
+    }
+    return;
+  }
 
   const success = window.dentalStorage.loginStaff(u, p);
   if (success) {
-    errEl.style.display = 'none';
+    if (errEl) errEl.style.display = 'none';
+    if (banner) banner.style.display = 'none';
     closeStaffModal();
+    
+    // Clear inputs immediately
+    document.getElementById('staff-username').value = '';
+    document.getElementById('staff-password').value = '';
+
+    const staff = window.dentalStorage.getLoggedInStaff();
+    const displayName = (staff && staff.name) ? staff.name : 'ทันตาภิบาลผู้ดูแลระบบ';
     document.getElementById('staff-nav-label').textContent = 'แดชบอร์ดทันตาภิบาล';
-    showToast('เข้าสู่ระบบทันตาภิบาลสำเร็จ', 'success');
+    const staffNameEl = document.getElementById('staff-name-display');
+    if (staffNameEl) staffNameEl.textContent = displayName;
+
+    showToast(`เข้าสู่ระบบสำเร็จ: ยินดีต้อนรับ ${displayName}`, 'success');
     switchView('staff');
   } else {
-    errEl.style.display = 'block';
+    const lockoutAfter = window.dentalStorage.getLoginLockoutStatus();
+    if (lockoutAfter.isLocked) {
+      if (banner) {
+        banner.style.display = 'flex';
+        document.getElementById('staff-lockout-msg').textContent = `ระบุรหัสผ่านผิดเกิน 5 ครั้ง ระบบถูกระงับชั่วคราว 5 นาทีเพื่อความปลอดภัย`;
+      }
+      if (errEl) errEl.style.display = 'none';
+      const submitBtn = document.getElementById('btn-staff-login-submit');
+      if (submitBtn) submitBtn.disabled = true;
+    } else {
+      if (errEl) errEl.style.display = 'flex';
+      if (errText) errText.textContent = `ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง (ลองผิดแล้ว ${lockoutAfter.failedCount}/5 ครั้ง)`;
+    }
+  }
+}
+
+function openChangePasswordModal() {
+  const staff = window.dentalStorage.getLoggedInStaff();
+  if (!staff) {
+    showToast('กรุณาเข้าสู่ระบบก่อนเปลี่ยนรหัสผ่าน', 'warning');
+    return;
+  }
+  document.getElementById('cp-old-password').value = '';
+  document.getElementById('cp-new-password').value = '';
+  document.getElementById('cp-confirm-password').value = '';
+  const errBox = document.getElementById('cp-error-box');
+  if (errBox) errBox.style.display = 'none';
+  document.getElementById('modal-change-password').classList.add('show');
+}
+
+function closeChangePasswordModal() {
+  document.getElementById('modal-change-password').classList.remove('show');
+}
+
+function handleChangePasswordSubmit(event) {
+  event.preventDefault();
+  const staff = window.dentalStorage.getLoggedInStaff();
+  if (!staff) return;
+
+  const oldP = document.getElementById('cp-old-password').value;
+  const newP = document.getElementById('cp-new-password').value;
+  const confirmP = document.getElementById('cp-confirm-password').value;
+  const errBox = document.getElementById('cp-error-box');
+
+  if (newP !== confirmP) {
+    errBox.style.display = 'block';
+    errBox.textContent = 'รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน';
+    return;
+  }
+
+  const result = window.dentalStorage.changeStaffPassword(staff.username, oldP, newP);
+  if (result.success) {
+    closeChangePasswordModal();
+    showToast('เปลี่ยนรหัสผ่านสำเร็จเรียบร้อย', 'success');
+  } else {
+    errBox.style.display = 'block';
+    errBox.textContent = result.error || 'ไม่สามารถเปลี่ยนรหัสผ่านได้';
   }
 }
 
