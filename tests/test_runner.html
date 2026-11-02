@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>Dental System Unit Test Runner</title>
+</head>
+<body>
+  <div id="test-results">RUNNING</div>
+  <script src="../js/storage.js"></script>
+  <script>
+    const results = [];
+    function assert(name, condition) {
+      if (condition) {
+        results.push({ name: name, status: 'PASS' });
+      } else {
+        results.push({ name: name, status: 'FAIL' });
+      }
+    }
+
+    async function runTests() {
+      try {
+        // Test 1: Thai ID Validation
+        assert('Thai ID Checksum: Valid ID 1100400123450', isValidThaiCitizenId('1100400123450') === true);
+        assert('Thai ID Checksum: Invalid ID 1100400123456', isValidThaiCitizenId('1100400123456') === false);
+        assert('Thai ID Checksum: Incomplete 12 digits', isValidThaiCitizenId('110040012345') === false);
+
+        // Test 2: Storage Initialization & Seed Data
+        const st = new DentalStorage();
+        const appointments = st.getAppointments();
+        assert('Initial Appointments Loaded', appointments.length >= 3);
+
+        const schedule = st.getSchedule();
+        assert('Schedule Default Slots Exist', schedule.defaultSlots.length >= 4);
+
+        // Test 3: Closed Date Logic
+        const today = new Date();
+        const holiday = new Date(today);
+        holiday.setDate(today.getDate() + 4);
+        const holidayStr = holiday.toISOString().split('T')[0];
+        const closedCheck = st.isDateOpen(holidayStr);
+        assert('Closed Date correctly recognized as closed', closedCheck.isOpen === false);
+
+        // Test 4: Booking Creation
+        const testApt = st.createAppointment({
+          date: '2026-11-20',
+          slotId: '09:00-10:00',
+          slotTime: '09:00 - 10:00',
+          patientName: 'ทดสอบ ผู้ป่วยทันตกรรม',
+          citizenId: '1100400123450',
+          phone: '0812345678',
+          symptoms: 'ปวดฟันคุด มีอาการบวม',
+          medicalNotes: 'ไม่มีโรคประจำตัว'
+        });
+        assert('Appointment Created with Valid ID', testApt && testApt.id.startsWith('DEN-'));
+        assert('Appointment Saved to List', st.getAppointments().some(a => a.id === testApt.id));
+
+        // Test 5: Search Appointment by ID, Phone & Citizen ID
+        const searchRes1 = st.searchAppointments(testApt.id);
+        assert('Search by Queue ID Found', searchRes1.length > 0 && searchRes1[0].id === testApt.id);
+
+        const searchRes2 = st.searchAppointments('0812345678');
+        assert('Search by Phone Found', searchRes2.length > 0);
+
+        const searchRes3 = st.searchAppointments('1100400123450');
+        assert('Search by Citizen ID Found', searchRes3.length > 0);
+
+        // Test 6: Dental Staff Login & Reply System
+        assert('Staff Login valid credentials (nurse/1234)', st.loginStaff('nurse', '1234') === true);
+        assert('Staff Login invalid credentials fails', st.loginStaff('nurse', 'wrong') === false);
+
+        const updated = st.updateAppointmentReply(testApt.id, {
+          message: 'ทันตาภิบาลยืนยันนัดหมาย นำบัตร ปชช. มาด้วยครับ',
+          repliedBy: 'ทภ. รัตนา'
+        }, 'CONFIRMED');
+
+        assert('Appointment Status Updated to CONFIRMED', updated.status === 'CONFIRMED');
+        assert('Reply Message Saved Correctly', updated.reply.message.includes('ทันตาภิบาลยืนยัน'));
+
+        // Test 7: Staff Setting Closed Date dynamically
+        st.setDateStatus('2026-11-25', false, 'วันหยุดพิเศษประจำคลินิก');
+        assert('Staff dynamically set date closed', st.isDateOpen('2026-11-25').isOpen === false);
+
+        // Reopen date
+        st.setDateStatus('2026-11-25', true);
+        assert('Staff dynamically reopened date', st.isDateOpen('2026-11-25').isOpen === true);
+
+        // Test 8: Staff Calendar Appointments Retrieval by Date
+        const aptsOnDay = st.getAppointmentsForDate(testApt.date);
+        assert('Calendar Day Appointments Query returns items', aptsOnDay.length > 0);
+
+        // Test 9: Slot Availability & Booking Calculation
+        const slotsForDate = st.getSlotsForDate(testApt.date);
+        assert('Slots query returns valid slots array', Array.isArray(slotsForDate) && slotsForDate.length > 0);
+        const bookedSlot = slotsForDate.find(s => s.id === testApt.slotId);
+        assert('Booked slot reflects appointment count', bookedSlot && bookedSlot.bookedCount >= 1);
+
+        // Test 10: Reset Schedule Slots to Default
+        const initialSchedule = getInitialSchedule();
+        st.saveDefaultSlots(initialSchedule.defaultSlots);
+        const resetSchedule = st.getSchedule();
+        assert('Schedule successfully reset to default standard slots', resetSchedule.defaultSlots.length === DEFAULT_SLOTS.length);
+
+        // Format Summary
+        const allPassed = results.every(r => r.status === 'PASS');
+        document.getElementById('test-results').textContent = JSON.stringify({
+          success: allPassed,
+          results: results
+        });
+      } catch (err) {
+        document.getElementById('test-results').textContent = JSON.stringify({
+          success: false,
+          error: err.toString()
+        });
+      }
+    }
+    runTests();
+  </script>
+</body>
+</html>

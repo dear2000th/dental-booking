@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ระบบนัดจองคิวทันตกรรมออนไลน์ | Dental Booking System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand" onclick="switchView('patient')">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2C8.5 2 6 4.5 6 7.5c0 3 1.5 5.5 2.5 8 .8 2 1.5 4.5 3.5 4.5s2.7-2.5 3.5-4.5c1-2.5 2.5-5 2.5-8C18 4.5 15.5 2 12 2z"/>
+            <path d="M9 7c1-1 2-1 3 0 1-1 2-1 3 0"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>ทันตกรรมออนไลน์ รพ.สต.ควนลัง</h1>
+          <span class="sub">Dental Queue Booking</span>
+        </div>
+      </div>
+
+      <nav class="header-nav">
+        <button id="nav-patient-btn" class="nav-btn active" onclick="switchView('patient')">
+          <span class="nav-icon">📅</span>
+          <span>สำหรับผู้รับบริการ</span>
+        </button>
+        <button id="nav-check-btn" class="nav-btn" onclick="switchView('check-status')">
+          <span class="nav-icon">🔍</span>
+          <span>ตรวจสอบคิว</span>
+        </button>
+        <button id="nav-staff-btn" class="nav-btn staff-portal-btn" onclick="openStaffModal()">
+          <span class="nav-icon">🩺</span>
+          <span id="staff-nav-label">ทันตาภิบาล</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="mobile-nav">
+    <button class="m-nav-item active" id="m-nav-book" onclick="switchView('patient')">
+      <span class="icon">📅</span>
+      <span>จองคิว</span>
+    </button>
+    <button class="m-nav-item" id="m-nav-check" onclick="switchView('check-status')">
+      <span class="icon">🔍</span>
+      <span>เช็คสถานะ</span>
+    </button>
+    <button class="m-nav-item" id="m-nav-staff" onclick="openStaffModal()">
+      <span class="icon">🩺</span>
+      <span>ทันตาภิบาล</span>
+    </button>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="main-wrapper">
+
+    <!-- ============================================== -->
+    <!-- VIEW 1: PATIENT BOOKING VIEW                    -->
+    <!-- ============================================== -->
+    <section id="view-patient" class="app-view active">
+      <!-- Hero Banner -->
+      <div class="hero-card">
+        <div class="hero-content">
+          <div class="hero-badge">บริการนัดหมายทันตกรรมล่วงหน้า</div>
+          <h2>จองคิวรับบริการทันตกรรมสะดวกรวดเร็ว</h2>
+          <p>เลือกวันจากปฏิทิน ระบุช่วงเวลา และกรอกข้อมูลอาการเบื้องต้น เจ้าหน้าที่ทันตาภิบาลจะตรวจทานและตอบกลับแจ้งเตือนการนัดหมาย</p>
+          <div class="clinic-status-pill" id="clinic-open-status">
+            <span class="status-dot"></span>
+            <span class="status-text">ระบบเปิดรับนัดหมายตามวันทำการ</span>
+          </div>
+        </div>
+        <div class="hero-quick-stats">
+          <div class="stat-bubble">
+            <span class="num" id="stat-slots-available">--</span>
+            <span class="lbl">คิวว่างเดือนนี้</span>
+          </div>
+          <div class="stat-bubble">
+            <span class="num">15 นาที</span>
+            <span class="lbl">มาก่อนเวลานัด</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="booking-grid">
+        <!-- Step 1: Calendar & Slot Selection -->
+        <div class="card booking-calendar-card">
+          <div class="card-header">
+            <div class="step-indicator">ขั้นตอนที่ 1</div>
+            <h3>เลือกวันที่และรอบเวลารับบริการ</h3>
+            <p class="card-desc">คลิกเลือกวันที่ที่เปิดให้บริการ (สีเขียว) จากนั้นเลือกรอบเวลาที่ต้องการ</p>
+          </div>
+
+          <!-- Calendar Component -->
+          <div class="calendar-wrapper">
+            <div class="cal-nav-bar">
+              <button class="cal-nav-btn" onclick="prevMonth()" title="เดือนก่อนหน้า">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <div class="cal-month-title" id="cal-month-label">พฤศจิกายน 2569</div>
+              <button class="cal-nav-btn" onclick="nextMonth()" title="เดือนถัดไป">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+
+            <!-- Legend -->
+            <div class="cal-legend">
+              <span class="legend-item"><span class="legend-dot open"></span> เปิดบริการ</span>
+              <span class="legend-item"><span class="legend-dot full"></span> คิวเต็ม</span>
+              <span class="legend-item"><span class="legend-dot closed"></span> ปิดทำการ</span>
+              <span class="legend-item"><span class="legend-dot selected"></span> วันที่เลือก</span>
+            </div>
+
+            <!-- Day Headers -->
+            <div class="cal-weekdays">
+              <span>อา</span>
+              <span>จ</span>
+              <span>อ</span>
+              <span>พ</span>
+              <span>พฤ</span>
+              <span>ศ</span>
+              <span>ส</span>
+            </div>
+
+            <!-- Calendar Days Grid -->
+            <div class="cal-days-grid" id="cal-days-grid">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Time Slots Container -->
+          <div class="slots-section" id="slots-section">
+            <div class="slots-header">
+              <h4>รอบเวลาบริการประจำวันที่ <span id="selected-date-label" class="highlight-date">-</span></h4>
+              <span class="slots-count-badge" id="slots-count-badge">กรุณาเลือกวัน</span>
+            </div>
+            <div class="slots-list" id="slots-list">
+              <div class="empty-hint">กรุณาคลิกเลือกวันที่เปิดให้บริการจากปฏิทินด้านบน</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Patient Information Form -->
+        <div class="card booking-form-card">
+          <div class="card-header">
+            <div class="step-indicator">ขั้นตอนที่ 2</div>
+            <h3>ข้อมูลผู้รับบริการและอาการเบื้องต้น</h3>
+            <p class="card-desc">กรุณากรอกข้อมูลให้ถูกต้องครบถ้วน เพื่อให้ทันตาภิบาลติดต่อและเตรียมการรักษา</p>
+          </div>
+
+          <!-- Selection Summary Bar -->
+          <div class="selected-summary-bar" id="selected-summary-bar">
+            <div class="sum-icon">⏰</div>
+            <div class="sum-details">
+              <div class="sum-title">ยังไม่ได้เลือกรอบเวลา</div>
+              <div class="sum-sub">กรุณาเลือกวันที่และรอบเวลาจากขั้นตอนที่ 1</div>
+            </div>
+          </div>
+
+          <form id="booking-form" onsubmit="handleBookingSubmit(event)" novalidate>
+            <!-- Full Name -->
+            <div class="form-group">
+              <label for="p-name" class="required">ชื่อ - สกุล</label>
+              <div class="input-with-icon">
+                <span class="input-icon">👤</span>
+                <input type="text" id="p-name" name="name" placeholder="ตัวอย่าง: สมชาย ใจดี" required autocomplete="name">
+              </div>
+              <div class="field-error" id="err-p-name">กรุณาระบุชื่อ-นามสกุล</div>
+            </div>
+
+            <!-- Citizen ID -->
+            <div class="form-group">
+              <label for="p-citizen-id" class="required">เลขประจำตัวประชาชน (13 หลัก)</label>
+              <div class="input-with-icon">
+                <span class="input-icon">🪪</span>
+                <input type="tel" id="p-citizen-id" name="citizenId" placeholder="x-xxxx-xxxxx-xx-x" maxlength="13" required autocomplete="off" oninput="validateCitizenIdInput(this)">
+              </div>
+              <div class="input-help">ใช้สำหรับตรวจสอบประวัติและค้นหาผลการนัดหมาย</div>
+              <div class="field-error" id="err-p-citizen-id">กรุณาระบุเลขบัตรประชาชน 13 หลักให้ถูกต้อง</div>
+            </div>
+
+            <!-- Phone Number -->
+            <div class="form-group">
+              <label for="p-phone" class="required">เบอร์โทรศัพท์ (ที่ติดต่อได้สะดวก)</label>
+              <div class="input-with-icon">
+                <span class="input-icon">📞</span>
+                <input type="tel" id="p-phone" name="phone" placeholder="ตัวอย่าง: 0812345678" maxlength="10" required autocomplete="tel" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+              </div>
+              <div class="field-error" id="err-p-phone">กรุณาระบุเบอร์โทรศัพท์ 10 หลัก</div>
+            </div>
+
+            <!-- Quick Service Selector Chips -->
+            <div class="form-group">
+              <label>บริการ / อาการที่ต้องการรับการรักษา</label>
+              <div class="symptom-chips">
+                <button type="button" class="chip" onclick="selectChip(this, 'ตรวจสุขภาพช่องปากทั่วไป')">ตรวจช่องปาก</button>
+                <button type="button" class="chip" onclick="selectChip(this, 'ขูดหินปูน / ขัดฟัน')">ขูดหินปูน</button>
+                <button type="button" class="chip" onclick="selectChip(this, 'อุดฟัน')">อุดฟัน</button>
+                <button type="button" class="chip" onclick="selectChip(this, 'ถอนฟัน')">ถอนฟัน</button>
+                <button type="button" class="chip" onclick="selectChip(this, 'ปวดฟัน มีอาการเสียวฟัน')">ปวดฟัน/เสียวฟัน</button>
+                <button type="button" class="chip" onclick="selectChip(this, 'เหงือกอักเสบ / เลือดออกตามไรฟัน')">เหงือกอักเสบ</button>
+                <button type="button" class="chip" onclick="selectChip(this, 'ปรึกษาจัดฟัน/ฟันปลอม')">ปรึกษาฟันปลอม</button>
+              </div>
+            </div>
+
+            <!-- Detailed Symptoms -->
+            <div class="form-group">
+              <label for="p-symptoms" class="required">อาการเบื้องต้น / รายละเอียดเพิ่มเติม</label>
+              <textarea id="p-symptoms" name="symptoms" rows="3" placeholder="ระบุอาการ เช่น ปวดฟันกรามล่างขวามา 3 วัน, ต้องการขูดหินปูนประจำปี, เคยมีประวัติแพ้ยา..." required></textarea>
+              <div class="field-error" id="err-p-symptoms">กรุณาระบุอาการเบื้องต้นเพื่อให้ทันตาภิบาลประเมิน</div>
+            </div>
+
+            <!-- Medical History / Allergies -->
+            <div class="form-group">
+              <label for="p-medical-notes">โรคประจำตัว / ประวัติการแพ้ยา (ถ้ามี)</label>
+              <input type="text" id="p-medical-notes" name="medicalNotes" placeholder="เช่น ความดัน, เบาหวาน, แพ้ยาเพนิซิลลิน (ถ้าไม่มีให้เว้นว่างไว้)">
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-booking-btn">
+              <span class="btn-icon">✅</span>
+              <span>ยืนยันการจองคิวนัดหมาย</span>
+            </button>
+            <p class="form-footer-note">เมื่อส่งการจองแล้ว เจ้าหน้าที่ทันตาภิบาลจะตรวจสอบคิวและตอบกลับการนัดหมาย</p>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- VIEW 2: CHECK STATUS / QUEUE SLIP VIEW         -->
+    <!-- ============================================== -->
+    <section id="view-check-status" class="app-view">
+      <div class="check-status-container">
+        <div class="card check-search-card">
+          <div class="card-header text-center">
+            <div class="circle-icon">🔍</div>
+            <h2>ตรวจสอบสถานะการนัดหมาย</h2>
+            <p>กรอกเลขบัตรประจำตัวประชาชน หรือ เบอร์โทรศัพท์ ที่ใช้ในการจองเพื่อดูสถานะและข้อความตอบกลับจากทันตาภิบาล</p>
+          </div>
+
+          <form id="search-queue-form" onsubmit="handleSearchQueue(event)" class="search-form">
+            <div class="search-input-group">
+              <input type="text" id="search-query" placeholder="กรอกเลขบัตรประชาชน 13 หลัก หรือ เบอร์โทรศัพท์" required>
+              <button type="submit" class="btn btn-primary">
+                <span>ค้นหาคิว</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Search Results Container -->
+        <div id="search-results-list" class="search-results-list">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- VIEW 3: DENTAL STAFF PORTAL (ทันตาภิบาล)       -->
+    <!-- ============================================== -->
+    <section id="view-staff" class="app-view">
+      <div class="staff-dashboard">
+        <!-- Staff Top Bar -->
+        <div class="staff-header-card">
+          <div class="staff-profile">
+            <div class="staff-avatar">🩺</div>
+            <div class="staff-info">
+              <div class="staff-badge">ทันตาภิบาลผู้ดูแลระบบ</div>
+              <h2 id="staff-name-display">คลินิกทันตกรรม / แผนกทันตสาธารณสุข</h2>
+              <span class="session-info">เข้าสู่ระบบแล้ว • <span id="staff-current-datetime"></span></span>
+            </div>
+          </div>
+          <div class="staff-actions">
+            <button class="btn btn-outline btn-sm" onclick="exportAppointmentsData()">
+              <span>📥 ส่งออกรายชื่อ (CSV)</span>
+            </button>
+            <button class="btn btn-danger-outline btn-sm" onclick="logoutStaff()">
+              <span>ออกจากระบบ</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Staff Navigation Tabs -->
+        <div class="staff-tabs">
+          <button class="tab-btn active" id="tab-btn-queue" onclick="switchStaffTab('queue')">
+            <span class="tab-icon">📋</span>
+            <span>รายการนัดหมายทั้งหมด</span>
+            <span class="badge" id="badge-pending-count">0</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-calendar" onclick="switchStaffTab('calendar')">
+            <span class="tab-icon">📅</span>
+            <span>ปฏิทินนัดหมาย (ภาพรวม)</span>
+            <span class="badge badge-today" id="badge-calendar-today">วันนี้ 0</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-schedule" onclick="switchStaffTab('schedule')">
+            <span class="tab-icon">⚙️</span>
+            <span>กำหนดวัน & Slot เวลาบริการ</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-stats" onclick="switchStaffTab('stats')">
+            <span class="tab-icon">📊</span>
+            <span>สรุปสถิติคิว</span>
+          </button>
+        </div>
+
+        <!-- TAB 1: Queue Management & Patient Reply -->
+        <div id="staff-tab-queue" class="staff-tab-content active">
+          <!-- Filter & Search Toolbar -->
+          <div class="queue-toolbar">
+            <div class="toolbar-search">
+              <input type="text" id="filter-keyword" placeholder="ค้นหาชื่อ, เลขบัตร, เบอร์ หรือรหัสคิว..." oninput="renderStaffQueueTable()">
+            </div>
+            <div class="toolbar-filters">
+              <select id="filter-status" onchange="renderStaffQueueTable()">
+                <option value="ALL">ทุกสถานะ</option>
+                <option value="PENDING" selected>รอยืนยัน (PENDING)</option>
+                <option value="CONFIRMED">ยืนยันแล้ว (CONFIRMED)</option>
+                <option value="RESCHEDULED">ขอเลื่อนนัด (RESCHEDULED)</option>
+                <option value="COMPLETED">ตรวจเสร็จสิ้น (COMPLETED)</option>
+                <option value="CANCELLED">ยกเลิก (CANCELLED)</option>
+              </select>
+              <input type="date" id="filter-date" onchange="renderStaffQueueTable()">
+              <button class="btn btn-outline btn-sm" onclick="clearQueueFilters()">ล้างตัวกรอง</button>
+            </div>
+          </div>
+
+          <!-- Queue Table / Cards -->
+          <div class="card queue-table-card">
+            <div class="table-responsive">
+              <table class="data-table" id="staff-queue-table">
+                <thead>
+                  <tr>
+                    <th>รหัสคิว</th>
+                    <th>วันเวลานัด</th>
+                    <th>ข้อมูลผู้รับบริการ</th>
+                    <th>อาการเบื้องต้น</th>
+                    <th>สถานะ</th>
+                    <th>การตอบกลับจากทันตาภิบาล</th>
+                    <th>จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="staff-queue-tbody">
+                  <!-- Populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+            <div class="table-empty-state" id="queue-empty-state" style="display:none;">
+              <div class="empty-icon">📂</div>
+              <h4>ไม่พบคิวนัดหมายตามเงื่อนไขที่เลือก</h4>
+              <p>สามารถเปลี่ยนตัวกรอง หรือรอผู้รับบริการจองคิวเข้ามา</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Dental Staff Appointment Calendar Overview (หน้านัดหมายที่เป็นปฏิทิน) -->
+        <div id="staff-tab-calendar" class="staff-tab-content">
+          <!-- Calendar Overview Toolbar -->
+          <div class="calendar-overview-toolbar card">
+            <div class="cal-view-nav">
+              <button class="btn btn-outline btn-sm" onclick="prevStaffAptMonth()" title="เดือนก่อนหน้า">◀ ก่อนหน้า</button>
+              <button class="btn btn-outline btn-sm" onclick="todayStaffAptMonth()">วันนี้</button>
+              <button class="btn btn-outline btn-sm" onclick="nextStaffAptMonth()" title="เดือนถัดไป">ถัดไป ▶</button>
+              <h3 id="staff-apt-cal-title" class="apt-month-title">พฤศจิกายน 2569</h3>
+            </div>
+            <div class="cal-view-filters">
+              <div class="filter-group">
+                <label>แสดงสถานะ:</label>
+                <select id="staff-apt-cal-status-filter" onchange="renderStaffAppointmentCalendar()">
+                  <option value="ALL">ทุกลำดับนัดหมาย</option>
+                  <option value="PENDING">เฉพาะรอยืนยัน</option>
+                  <option value="CONFIRMED">เฉพาะยืนยันแล้ว</option>
+                  <option value="RESCHEDULED">เฉพาะขอเลื่อนนัด</option>
+                  <option value="COMPLETED">เฉพาะตรวจแล้ว</option>
+                </select>
+              </div>
+              <div class="cal-quick-indicators">
+                <span class="ind-item"><span class="ind-dot ind-pending"></span> รอยืนยัน</span>
+                <span class="ind-item"><span class="ind-dot ind-confirmed"></span> ยืนยันแล้ว</span>
+                <span class="ind-item"><span class="ind-dot ind-rescheduled"></span> ขอเลื่อน</span>
+                <span class="ind-item"><span class="ind-dot ind-completed"></span> เสร็จสิ้น</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Calendar Overview Grid & Day Agenda Split -->
+          <div class="staff-calendar-layout">
+            <!-- Left: Big Month Grid -->
+            <div class="card staff-cal-card">
+              <div class="staff-apt-weekdays">
+                <span>อาทิตย์</span>
+                <span>จันทร์</span>
+                <span>อังคาร</span>
+                <span>พุธ</span>
+                <span>พฤหัสบดี</span>
+                <span>ศุกร์</span>
+                <span>เสาร์</span>
+              </div>
+              <div class="staff-apt-grid" id="staff-apt-grid">
+                <!-- Dynamically rendered cells with appointment pills -->
+              </div>
+            </div>
+
+            <!-- Right: Daily Appointment Agenda Drawer -->
+            <div class="card staff-agenda-card">
+              <div class="agenda-header">
+                <div class="agenda-title-wrap">
+                  <span class="agenda-badge">ตารางคิวนัดหมายประจำวัน</span>
+                  <h4 id="agenda-selected-date-text">กรุณาเลือกวันที่จากปฏิทิน</h4>
+                </div>
+                <div class="agenda-count-badge" id="agenda-day-count-badge">0 นัดหมาย</div>
+              </div>
+
+              <!-- List of Appointments on this Selected Day -->
+              <div class="agenda-list" id="agenda-appointment-list">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Schedule & Slot Configuration -->
+        <div id="staff-tab-schedule" class="staff-tab-content">
+          <div class="schedule-grid">
+            <!-- Left: Calendar Date Status Toggle -->
+            <div class="card">
+              <div class="card-header">
+                <h3>กำหนดวันเปิด - ปิดให้บริการ</h3>
+                <p class="card-desc">คลิกเลือกวันที่ในปฏิทินเพื่อตั้งค่าเปิดบริการ หรือปิดทำการ (วันที่ปิด ผู้รับบริการจะไม่สามารถกดจองได้)</p>
+              </div>
+
+              <!-- Staff Calendar -->
+              <div class="calendar-wrapper">
+                <div class="cal-nav-bar">
+                  <button class="cal-nav-btn" onclick="prevStaffMonth()">‹</button>
+                  <div class="cal-month-title" id="staff-cal-month-label">พฤศจิกายน 2569</div>
+                  <button class="cal-nav-btn" onclick="nextStaffMonth()">›</button>
+                </div>
+                <div class="cal-legend">
+                  <span class="legend-item"><span class="legend-dot open"></span> เปิดบริการ</span>
+                  <span class="legend-item"><span class="legend-dot closed"></span> ปิดทำการ</span>
+                  <span class="legend-item"><span class="legend-dot selected"></span> วันที่กำลังตั้งค่า</span>
+                </div>
+                <div class="cal-weekdays">
+                  <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
+                </div>
+                <div class="cal-days-grid" id="staff-cal-days-grid">
+                  <!-- Dynamic -->
+                </div>
+              </div>
+
+              <!-- Quick Date Toggle Panel -->
+              <div class="date-control-panel" id="staff-date-control-panel">
+                <div class="control-header">
+                  <h4>ตั้งค่าวันที่: <span id="staff-selected-date-text" class="text-primary">-</span></h4>
+                  <span class="status-pill" id="staff-selected-date-status-pill">เปิดบริการ</span>
+                </div>
+                <div class="control-actions">
+                  <button class="btn btn-success" id="btn-set-open" onclick="toggleSelectedDateOpen(true)">
+                    <span>✅ เปิดให้บริการในวันนี้</span>
+                  </button>
+                  <button class="btn btn-danger" id="btn-set-closed" onclick="toggleSelectedDateOpen(false)">
+                    <span>⛔ ปิดทำการ (ห้ามจอง)</span>
+                  </button>
+                </div>
+                <div class="close-reason-box" id="close-reason-box" style="display:none;">
+                  <label for="close-reason-input">เหตุผลการปิดทำการ (จะแสดงให้ผู้ป่วยทราบในปฏิทิน):</label>
+                  <input type="text" id="close-reason-input" placeholder="เช่น วันหยุดนักขัตฤกษ์, เจ้าหน้าที่อบรมวิชาการ..." onchange="saveCloseReason(this.value)">
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Slot Times Management -->
+            <div class="card">
+              <div class="card-header">
+                <h3>จัดการ Slot ช่วงเวลา และจำนวนคิว</h3>
+                <p class="card-desc">กำหนดรอบเวลาที่เปิดรับบริการ และจำนวนผู้รับบริการสูงสุดในแต่ละรอบ</p>
+              </div>
+
+              <!-- Add Slot Form -->
+              <form class="add-slot-form" onsubmit="handleAddSlot(event)">
+                <div class="slot-form-row">
+                  <div class="form-group flex-1">
+                    <label>เวลาเริ่มต้น</label>
+                    <input type="time" id="new-slot-start" required value="09:00">
+                  </div>
+                  <div class="form-group flex-1">
+                    <label>เวลาสิ้นสุด</label>
+                    <input type="time" id="new-slot-end" required value="10:00">
+                  </div>
+                  <div class="form-group flex-1">
+                    <label>จำนวนคิวสูงสุด (คน)</label>
+                    <input type="number" id="new-slot-capacity" min="1" max="20" required value="2">
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                  <span>➕ เพิ่ม Slot ช่วงเวลานี้</span>
+                </button>
+              </form>
+
+              <!-- Slot List for Current Day -->
+              <div class="slots-management-section">
+                <div class="section-title-row">
+                  <h4>รายการรอบเวลาบริการ (<span id="staff-slot-count">0</span> รอบ)</h4>
+                  <button class="btn btn-outline btn-xs" onclick="resetSlotsToDefault()">
+                    🔄 คืนค่ารอบเวลามาตรฐาน
+                  </button>
+                </div>
+                <div class="staff-slots-list" id="staff-slots-list">
+                  <!-- Dynamic slot list -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Statistics & Overview -->
+        <div id="staff-tab-stats" class="staff-tab-content">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon bg-blue">📋</div>
+              <div class="stat-data">
+                <span class="stat-number" id="stat-total-bookings">0</span>
+                <span class="stat-label">การจองทั้งหมด</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon bg-amber">⏳</div>
+              <div class="stat-data">
+                <span class="stat-number" id="stat-pending-bookings">0</span>
+                <span class="stat-label">รอยืนยันนัด</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon bg-green">✅</div>
+              <div class="stat-data">
+                <span class="stat-number" id="stat-confirmed-bookings">0</span>
+                <span class="stat-label">ยืนยันแล้ว</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon bg-purple">🎉</div>
+              <div class="stat-data">
+                <span class="stat-number" id="stat-completed-bookings">0</span>
+                <span class="stat-label">ตรวจเสร็จสิ้น</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-charts-row">
+            <div class="card">
+              <h3>สัดส่วนอาการ / หัตถการที่นัดหมาย</h3>
+              <div class="symptom-breakdown" id="stats-symptom-breakdown">
+                <!-- Dynamic progress bars -->
+              </div>
+            </div>
+            <div class="card">
+              <h3>คำแนะนำสำหรับทันตาภิบาล</h3>
+              <ul class="staff-tips-list">
+                <li>💡 <strong>ตรวจสอบเลขบัตรประชาชน</strong> 13 หลักเพื่อดึงข้อมูลประวัติเวชระเบียนเดิม</li>
+                <li>💡 <strong>พิมพ์ตอบกลับยืนยัน</strong> หรือแนะนำการเตรียมตัว เช่น งดอาหารก่อนขูดหินปูน หรือเตรียมเอกสารสิทธิ์</li>
+                <li>💡 <strong>หากติดภารกิจด่วน</strong> สามารถเลือก "ขอเลื่อนนัด" พร้อมพิมพ์ช่วงเวลาใหม่ที่สะดวก ให้ผู้ป่วยทราบได้ทันทีผ่านระบบ</li>
+                <li>💡 สามารถกำหนดวันหยุดล่วงหน้าในเมนู "กำหนดวัน & Slot เวลา" ระบบจะล็อกไม่ให้ผู้ป่วยกดจองเข้ามาได้โดยอัตโนมัติ</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================== -->
+  <!-- FOOTER                                         -->
+  <!-- ============================================== -->
+  <footer class="app-footer">
+    <div class="footer-top">
+      <div class="footer-container footer-grid">
+        
+        <!-- Left Column: Clinic Branding & Info -->
+        <div class="footer-brand-col">
+          <div class="footer-brand">
+            <div class="footer-logo">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2C8.5 2 6 4.5 6 7.5c0 3 1.5 5.5 2.5 8 .8 2 1.5 4.5 3.5 4.5s2.7-2.5 3.5-4.5c1-2.5 2.5-5 2.5-8C18 4.5 15.5 2 12 2z"/>
+                <path d="M9 7c1-1 2-1 3 0 1-1 2-1 3 0"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="footer-clinic-name">คลินิกทันตกรรม รพ.สต.ควนลัง</h3>
+              <p class="footer-clinic-sub">โรงพยาบาลส่งเสริมสุขภาพตำบลควนลัง อ.หาดใหญ่ จ.สงขลา</p>
+            </div>
+          </div>
+          <p class="footer-desc">
+            ระบบจองคิวและนัดหมายทันตกรรมออนไลน์ อำนวยความสะดวกให้แก่ประชาชนในพื้นที่ตำบลควนลังและพื้นที่ใกล้เคียง ช่วยลดระยะเวลารอคอยและเพิ่มประสิทธิภาพการให้บริการทันตสาธารณสุข
+          </p>
+          <div class="footer-meta-tags">
+            <span class="meta-tag">📍 ตำบลควนลัง อำเภอหาดใหญ่ จังหวัดสงขลา</span>
+            <span class="meta-tag">⏰ วันทำการ: จันทร์ - ศุกร์ 08:30 - 16:30 น.</span>
+          </div>
+        </div>
+
+        <!-- Right Column: Developer Credit Card & System Status -->
+        <div class="footer-credit-col">
+          <div class="developer-card">
+            <div class="dev-card-header">
+              <div class="dev-avatar">👨‍⚕️</div>
+              <div class="dev-title-wrap">
+                <span class="dev-badge-role">งานทันตสาธารณสุข & นวัตกรรมบริการ</span>
+                <h4 class="dev-author-name">จัดทำโดย: นายเดียร์ เบญจาวิริยะวงศ์ นักวิชาการสาธารณสุข</h4>
+              </div>
+            </div>
+            <p class="dev-card-desc">
+              มุ่งมั่นพัฒนาระบบเทคโนโลยีดิจิทัล เพื่อยกระดับงานบริการสุขภาพช่องปากแก่ประชาชนในพื้นที่อย่างทั่วถึงและมีประสิทธิภาพ
+            </p>
+            <div class="dev-card-footer">
+              <span class="system-status-indicator">
+                <span class="pulse-dot"></span> ระบบพร้อมให้บริการออนไลน์
+              </span>
+              <span class="system-ver">Dental Booking Portal</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom Sub-Footer Bar -->
+    <div class="footer-bottom">
+      <div class="footer-container footer-bottom-flex">
+        <div class="footer-copy">
+          © 2026 ระบบนัดจองคิวทันตกรรมออนไลน์ รพ.สต.ควนลัง • All Rights Reserved
+        </div>
+        <div class="footer-bottom-links">
+          <span>บริการด้วยหัวใจเพื่อรอยยิ้มสุขภาพดีของชุมชน</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============================================== -->
+  <!-- MODAL: DENTAL STAFF LOGIN                      -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-staff-login">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon">🩺</div>
+        <h3>เข้าสู่ระบบทันตาภิบาล</h3>
+        <button class="modal-close-btn" onclick="closeStaffModal()">✕</button>
+      </div>
+      <form onsubmit="handleStaffLogin(event)">
+        <div class="modal-body">
+          <div class="demo-login-notice">
+            <strong>ข้อมูลทดสอบระบบสำหรับทันตาภิบาล:</strong><br>
+            ชื่อผู้ใช้งาน: <code>nurse</code> | รหัสผ่าน: <code>1234</code>
+          </div>
+          <div class="form-group">
+            <label for="staff-username">ชื่อผู้ใช้งาน (Username)</label>
+            <input type="text" id="staff-username" value="nurse" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="staff-password">รหัสผ่าน (Password)</label>
+            <input type="password" id="staff-password" value="1234" required autocomplete="current-password">
+          </div>
+          <div class="field-error" id="staff-login-error" style="display:none;">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeStaffModal()">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">เข้าสู่ระบบ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: DENTAL STAFF REPLY / STATUS UPDATE      -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-reply">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div class="modal-icon">💬</div>
+        <h3>ตอบกลับและอัปเดตสถานะคิวนัดหมาย</h3>
+        <button class="modal-close-btn" onclick="closeReplyModal()">✕</button>
+      </div>
+      <form onsubmit="handleSaveReply(event)">
+        <input type="hidden" id="reply-appointment-id">
+        <div class="modal-body">
+          <!-- Patient Summary in Modal -->
+          <div class="patient-modal-summary" id="modal-patient-summary">
+            <!-- Dynamic -->
+          </div>
+
+          <!-- Status Selector -->
+          <div class="form-group">
+            <label class="required">ปรับเปลี่ยนสถานะการนัดหมาย</label>
+            <div class="status-radio-group">
+              <label class="radio-card confirmed">
+                <input type="radio" name="reply-status" value="CONFIRMED" checked>
+                <div class="radio-content">
+                  <span class="radio-title">✅ ยืนยันนัดหมาย</span>
+                  <span class="radio-sub">ยืนยันรับคิวตามวันเวลาที่นัด</span>
+                </div>
+              </label>
+              <label class="radio-card rescheduled">
+                <input type="radio" name="reply-status" value="RESCHEDULED">
+                <div class="radio-content">
+                  <span class="radio-title">⏳ ขอเสนอเลื่อนนัด</span>
+                  <span class="radio-sub">แจ้งผู้ป่วยขอเปลี่ยนช่วงเวลา</span>
+                </div>
+              </label>
+              <label class="radio-card completed">
+                <input type="radio" name="reply-status" value="COMPLETED">
+                <div class="radio-content">
+                  <span class="radio-title">🎉 ตรวจเสร็จสิ้น</span>
+                  <span class="radio-sub">รับการรักษาเรียบร้อยแล้ว</span>
+                </div>
+              </label>
+              <label class="radio-card cancelled">
+                <input type="radio" name="reply-status" value="CANCELLED">
+                <div class="radio-content">
+                  <span class="radio-title">❌ ปฏิเสธ / ยกเลิกคิว</span>
+                  <span class="radio-sub">ไม่สามารถรับคิวในรอบนี้ได้</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Quick Reply Templates -->
+          <div class="form-group">
+            <label>ข้อความตอบกลับสำเร็จรูป (คลิกเพื่อเลือกใส่):</label>
+            <div class="reply-quick-templates">
+              <button type="button" class="btn-template" onclick="insertReplyTemplate('ทันตาภิบาลยืนยันนัดหมายเรียบร้อยแล้ว กรุณานำบัตรประชาชนตัวจริงมาด้วย และมาก่อนเวลานัดอย่างน้อย 15 นาทีครับ/ค่ะ')">
+                ✅ ยืนยันนัด + เตรียมบัตร ปชช.
+              </button>
+              <button type="button" class="btn-template" onclick="insertReplyTemplate('ทันตาภิบาลยืนยันนัดหมายแล้ว สำหรับการขูดหินปูน/อุดฟัน กรุณารับประทานอาหารและแปรงฟันให้เรียบร้อยก่อนมา')">
+                🦷 คำแนะนำก่อนขูดหินปูน
+              </button>
+              <button type="button" class="btn-template" onclick="insertReplyTemplate('เนื่องจากรอบเวลานี้มีเคสทันตกรรมฉุกเฉิน ขออนุญาตขอเลื่อนเวลาเป็นช่วงถัดไป หากสะดวกกรุณาตอบรับหรือติดต่อโทร 02-xxx-xxxx')">
+                ⏳ แจ้งขอเลื่อนเวลา
+              </button>
+              <button type="button" class="btn-template" onclick="insertReplyTemplate('เนื่องจากอาการของผู้ป่วยมีโรคประจำตัวที่ต้องปรึกษาแพทย์เฉพาะทางก่อน ขอความกรุณาติดต่อแผนกทันตกรรมโดยตรงก่อนเข้ารับบริการ')">
+                ⚠️ แจ้งเงื่อนไขโรคประจำตัว
+              </button>
+            </div>
+          </div>
+
+          <!-- Reply Message Field -->
+          <div class="form-group">
+            <label for="reply-message" class="required">ข้อความตอบกลับแจ้งไปยังผู้ป่วย (จะแสดงในการตรวจสอบคิว):</label>
+            <textarea id="reply-message" rows="4" placeholder="พิมพ์ข้อความตอบกลับหรือคำแนะนำที่จะส่งถึงผู้ป่วยที่นี่..." required></textarea>
+          </div>
+
+          <!-- Staff Responder Name -->
+          <div class="form-group">
+            <label for="reply-by">ชื่อทันตาภิบาล / เจ้าหน้าที่ผู้ตอบกลับ</label>
+            <input type="text" id="reply-by" value="ทภ. รัตนา พงษ์สวัสดิ์ (ทันตาภิบาลปฏิบัติการ)">
+          </div>
+
+        </div>
+        <div class="modal-footer modal-footer-sticky">
+          <button type="button" class="btn btn-outline btn-lg" id="btn-reply-cancel" onclick="closeReplyModal()">
+            <span>✕ ยกเลิก</span>
+          </button>
+          <button type="submit" class="btn btn-primary btn-lg" id="btn-reply-submit">
+            <span>✅ ตกลง / บันทึกการตอบกลับ</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: SUCCESS BOOKING SLIP                    -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-booking-success">
+    <div class="modal-card modal-slip">
+      <div class="slip-header">
+        <div class="slip-stamp">จองคิวสำเร็จ</div>
+        <div class="slip-icon">🦷</div>
+        <h3>บัตรนัดคิวทันตกรรมออนไลน์</h3>
+        <p>Dental Appointment Queue Slip</p>
+      </div>
+
+      <div class="slip-body" id="slip-content">
+        <!-- Dynamic slip details -->
+      </div>
+
+      <div class="slip-actions">
+        <button type="button" class="btn btn-primary btn-block" onclick="copySlipToClipboard()">
+          <span>📋 คัดลอกข้อมูลบัตรนัดคิว</span>
+        </button>
+        <button class="btn btn-outline btn-block" onclick="window.print()">
+          <span>🖨️ พิมพ์บัตรนัดคิว</span>
+        </button>
+        <button class="btn btn-secondary btn-block" onclick="closeSuccessModal()">
+          <span>ตกลง / ปิดหน้านี้</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Firebase Cloud SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <!-- App Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
